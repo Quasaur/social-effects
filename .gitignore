@@ -2,3 +2,20 @@
 .build/
 Packages/
 *.xcodeproj
+
+# Environment variables
+.env
+.env.local
+*.secret
+
+# Python virtual environment
+.venv/
+
+# Generated output (audio, backgrounds, cache)
+output/
+
+# VS Code workspace settings (user-local)
+.vscode/
+
+# Default profraw
+default.profraw

@@ -1,0 +1,8 @@
+module CMLT {
+    header "mlt-bridge.h"
+    
+    link "mlt-7.7"
+    link "mlt++-7.7"
+    
+    export *
+}

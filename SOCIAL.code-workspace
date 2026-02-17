@@ -1,0 +1,47 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../../../../Volumes/My Passport/antigravity-brain"
+		},
+		{
+			"path": "../social-marketer"
+		},
+		{
+			"path": "../WISDOM/ScreenShots"
+		}
+	],
+	"settings": {
+		"chat.tools.terminal.autoApprove": {
+			"ffmpeg": true,
+			"swift": true,
+			"git add": true
+		}
+	},
+	"launch": {
+		"configurations": [
+			{
+				"type": "swift",
+				"request": "launch",
+				"args": [],
+				"cwd": "${workspaceFolder:social-effects}",
+				"name": "Debug SocialEffects (social-effects)",
+				"target": "SocialEffects",
+				"configuration": "debug",
+				"preLaunchTask": "swift: Build Debug SocialEffects (social-effects)"
+			},
+			{
+				"type": "swift",
+				"request": "launch",
+				"args": [],
+				"cwd": "${workspaceFolder:social-effects}",
+				"name": "Release SocialEffects (social-effects)",
+				"target": "SocialEffects",
+				"configuration": "release",
+				"preLaunchTask": "swift: Build Release SocialEffects (social-effects)"
+			}
+		]
+	}
+}
