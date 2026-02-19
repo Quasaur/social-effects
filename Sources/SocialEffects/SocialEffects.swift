@@ -1,4 +1,4 @@
-import Foundation
+atimport Foundation
 import AVFoundation
 import CryptoKit
 
@@ -17,6 +17,22 @@ struct SocialEffectsCLI {
         // Parse command
         let command = arguments.count > 1 ? arguments[1] : "help"
         
+        // Always clear audio cache before generating video to ensure fresh, high-quality TTS
+        if ["generate-video", "test-video"].contains(command) {
+            let cacheDir = "output/cache/audio"
+            let fm = FileManager.default
+            if fm.fileExists(atPath: cacheDir) {
+                do {
+                    let files = try fm.contentsOfDirectory(atPath: cacheDir)
+                    for file in files where file.hasSuffix(".m4a") || file.hasSuffix(".mp3") || file.hasSuffix(".wav") {
+                        try? fm.removeItem(atPath: "\(cacheDir)/\(file)")
+                    }
+                    print("🧹 Cleared audio cache (")
+                } catch {
+                    print("⚠️ Failed to clear audio cache: \(error)")
+                }
+            }
+        }
         switch command {
         case "generate-backgrounds":
             await generateBackgrounds(arguments: Array(arguments.dropFirst(2)))
@@ -537,6 +553,8 @@ struct SocialEffectsCLI {
         var outputJSON = false
         var outputPathArg: String? = nil
         
+        var audioFileArg: String? = nil
+        var blackScreenDuration: Int = 0
         var i = 0
         while i < arguments.count {
             let arg = arguments[i]
@@ -561,6 +579,12 @@ struct SocialEffectsCLI {
             } else if arg == "--output-json" {
                 outputJSON = true
                 i += 1
+            } else if arg == "--audio-file" && i + 1 < arguments.count {
+                audioFileArg = arguments[i+1]
+                i += 2
+            } else if arg == "--black-screen" && i + 1 < arguments.count {
+                if let val = Int(arguments[i+1]) { blackScreenDuration = val }
+                i += 2
             } else {
                 i += 1
             }
@@ -577,6 +601,7 @@ struct SocialEffectsCLI {
         }
         
         // Setup Services
+        if !outputJSON { print("🔧 Initializing services...") }
         let graphicsGenerator = TextGraphicsGenerator()
         let audioMerger = AudioMerger()
         // VideoRenderer replaced with FFmpeg
@@ -588,7 +613,11 @@ struct SocialEffectsCLI {
         let appleVoice: AppleVoice?
         
         // Apple Jamie is always preferred — also needed for CTA outro
-        if AppleVoice.isAvailable() {
+        if !outputJSON { print("🔍 Checking voice providers...") }
+        
+        // Check if Jamie voice is available
+        let jamieVoice = AVSpeechSynthesisVoice(identifier: "com.apple.voice.premium.en-US.Jamie")
+        if jamieVoice != nil {
             appleVoice = AppleVoice()
             voiceService = nil
             if !outputJSON { print("🍎 Using Apple TTS (Jamie Premium)") }
@@ -663,7 +692,13 @@ struct SocialEffectsCLI {
             
             // 2. Generate Graphic
             if !outputJSON { print("🖼️ Generating graphic...") }
-            let borderStyle = TextGraphicsGenerator.BorderStyle(rawValue: borderArg) ?? .gold
+            // Use 10 approved ornate border styles in sequence by day
+            let approvedBorders: [TextGraphicsGenerator.BorderStyle] = [
+                .artDeco, .classicScroll, .sacredGeometry, .celticKnot, .fleurDeLis,
+                .baroque, .victorian, .goldenVine, .stainedGlass, .modernGlow
+            ]
+            let dayOfYear = Calendar.current.ordinality(of: .day, in: .year, for: Date()) ?? 1
+            let borderStyle = approvedBorders[(dayOfYear - 1) % approvedBorders.count]
             _ = try graphicsGenerator.generate(
                 title: title,
                 text: content,
@@ -671,38 +706,48 @@ struct SocialEffectsCLI {
                 border: borderStyle
             )
             
-            // 3. Generate Voice
-            let narrationText = content
-            let contentHash = sha256(narrationText)
-            let cacheDir = "output/cache/audio"
-            try? FileManager.default.createDirectory(atPath: cacheDir, withIntermediateDirectories: true)
-            
-            let currentDirURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-            let cachePath = currentDirURL.appendingPathComponent(cacheDir).appendingPathComponent("\(contentHash).m4a")
-            
-            // Check Cache first
-            if FileManager.default.fileExists(atPath: cachePath.path) {
-                if !outputJSON { print("📦 Using cached voice: \(contentHash).m4a") }
-                try FileManager.default.copyItem(at: cachePath, to: narrationPath)
-            } else {
-                // Not in cache — generate with available provider
-                if let voiceService = voiceService {
-                    if !outputJSON { print("🎙️ Generating voice (ElevenLabs/Donovan)...") }
-                    _ = try await voiceService.generateVoice(text: narrationText, outputPath: narrationPath)
-                    
-                    // Save to cache
-                    if !outputJSON { print("💾 Caching voice to: \(cachePath.lastPathComponent)") }
-                    try? FileManager.default.copyItem(at: narrationPath, to: cachePath)
-                } else if let appleVoice = appleVoice {
-                    if !outputJSON { print("🎙️ Generating voice (Apple/Jamie)...") }
-                    _ = try appleVoice.generateVoice(text: narrationText, outputPath: narrationPath)
-                    
-                    // Save to cache
-                    if !outputJSON { print("💾 Caching voice to: \(cachePath.lastPathComponent)") }
-                    try? FileManager.default.copyItem(at: narrationPath, to: cachePath)
+            // 3. Generate or Use Provided Voice
+            if let audioFileArg = audioFileArg {
+                if !outputJSON { print("🎙️ Using user-provided audio file: \(audioFileArg)") }
+                let userAudioURL = URL(fileURLWithPath: audioFileArg)
+                if FileManager.default.fileExists(atPath: userAudioURL.path) {
+                    try FileManager.default.copyItem(at: userAudioURL, to: narrationPath)
                 } else {
-                    if !outputJSON { print("⚠️ No voice provider available — cannot generate audio") }
-                    throw NSError(domain: "SocialEffects", code: 3, userInfo: [NSLocalizedDescriptionKey: "No voice provider available. Install Jamie Premium voice or set ELEVEN_LABS_API_KEY."])
+                    throw NSError(domain: "SocialEffects", code: 4, userInfo: [NSLocalizedDescriptionKey: "Provided audio file not found: \(audioFileArg)"])
+                }
+            } else {
+                let narrationText = content
+                let contentHash = sha256(narrationText)
+                let cacheDir = "output/cache/audio"
+                try? FileManager.default.createDirectory(atPath: cacheDir, withIntermediateDirectories: true)
+
+                let currentDirURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+                let cachePath = currentDirURL.appendingPathComponent(cacheDir).appendingPathComponent("\(contentHash).m4a")
+
+                // Check Cache first
+                if FileManager.default.fileExists(atPath: cachePath.path) {
+                    if !outputJSON { print("📦 Using cached voice: \(contentHash).m4a") }
+                    try FileManager.default.copyItem(at: cachePath, to: narrationPath)
+                } else {
+                    // Not in cache — generate with available provider
+                    if let voiceService = voiceService {
+                        if !outputJSON { print("🎙️ Generating voice (ElevenLabs/Donovan)...") }
+                        _ = try await voiceService.generateVoice(text: narrationText, outputPath: narrationPath)
+
+                        // Save to cache
+                        if !outputJSON { print("💾 Caching voice to: \(cachePath.lastPathComponent)") }
+                        try? FileManager.default.copyItem(at: narrationPath, to: cachePath)
+                    } else if let appleVoice = appleVoice {
+                        if !outputJSON { print("🎙️ Generating voice (Apple/Jamie)...") }
+                        _ = try appleVoice.generateVoice(text: narrationText, outputPath: narrationPath)
+
+                        // Save to cache
+                        if !outputJSON { print("💾 Caching voice to: \(cachePath.lastPathComponent)") }
+                        try? FileManager.default.copyItem(at: narrationPath, to: cachePath)
+                    } else {
+                        if !outputJSON { print("⚠️ No voice provider available — cannot generate audio") }
+                        throw NSError(domain: "SocialEffects", code: 3, userInfo: [NSLocalizedDescriptionKey: "No voice provider available. Install Jamie Premium voice or set ELEVEN_LABS_API_KEY."])
+                    }
                 }
             }
             
@@ -750,29 +795,59 @@ struct SocialEffectsCLI {
             // Input 2: narration + CTA audio
             ffmpegArgs += ["-i", finalAudioPath.path]
             
+            // Cinematic timing:
+            // 0-3s: Black screen with music
+            // 3-7s: Background fades in (4s)
+            // 7-11s: Text overlay fades in (4s)
+            // 11s: Narration starts
+            // After narration + 2s gap: CTA outro (handled by AudioMerger)
+            
+            // Always use cinematic intro with black screen
+            let cinematicBlackDuration = 3
+            ffmpegArgs.insert(contentsOf: ["-f", "lavfi", "-t", String(cinematicBlackDuration), "-i", "color=black:size=1080x1920:rate=30"], at: 0)
+            
+            // Input indices after inserting black screen:
+            // Input 0: black screen (3s)
+            // Input 1: background video (looped)
+            // Input 2: overlay graphic (looped PNG)
+            // Input 3: narration + CTA audio
+            // Input 4: background music (if present)
+            
             if hasBgMusic {
-                // Input 3: background music (loop)
                 ffmpegArgs += ["-stream_loop", "-1", "-i", backgroundMusicPath]
-                // Video: scale background to 1080x1920, overlay PNG with 1.5s fade-in
-                // Audio: 2s silence before narration, mix with music (14% volume)
                 ffmpegArgs += [
                     "-filter_complex",
-                    "[0:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2[bg];" +
-                    "[1:v]scale=1080:1920,format=rgba,fade=in:st=0:d=1.5:alpha=1[ovrl];" +
-                    "[bg][ovrl]overlay=0:0:shortest=1:format=auto[vout];" +
-                    "[2:a]adelay=2000|2000[narr];" +
-                    "[3:a]volume=0.14[musiclow];" +
+                    // Black screen: scale and prepare
+                    "[0:v]scale=1080:1920,setsar=1[black];" +
+                    // Background: scale, pad, and fade in from 3s over 4s (ends at 7s)
+                    "[1:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2,setsar=1,format=rgba,fade=in:st=3:d=4:alpha=1[bgfade];" +
+                    // Overlay black with fading background
+                    "[black][bgfade]overlay=0:0:shortest=0:format=auto[prebg];" +
+                    // Text overlay: fade in from 7s over 4s (ends at 11s)
+                    "[2:v]scale=1080:1920,format=rgba,fade=in:st=7:d=4:alpha=1[ovrl];" +
+                    "[prebg][ovrl]overlay=0:0:shortest=1:format=auto[vout];" +
+                    // Narration: delay 11 seconds (11000ms) to start after text is fully visible
+                    "[3:a]adelay=11000|11000[narr];" +
+                    // Background music: low volume (14%)
+                    "[4:a]volume=0.14[musiclow];" +
+                    // Mix narration with music, end when narration ends
                     "[narr][musiclow]amix=inputs=2:duration=first:dropout_transition=2[aout]",
                     "-map", "[vout]", "-map", "[aout]"
                 ]
             } else {
-                // No music — video overlay with fade-in + delayed narration
                 ffmpegArgs += [
                     "-filter_complex",
-                    "[0:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2[bg];" +
-                    "[1:v]scale=1080:1920,format=rgba,fade=in:st=0:d=1.5:alpha=1[ovrl];" +
-                    "[bg][ovrl]overlay=0:0:shortest=1:format=auto[vout];" +
-                    "[2:a]adelay=2000|2000[aout]",
+                    // Black screen: scale and prepare
+                    "[0:v]scale=1080:1920,setsar=1[black];" +
+                    // Background: scale, pad, and fade in from 3s over 4s (ends at 7s)
+                    "[1:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2,setsar=1,format=rgba,fade=in:st=3:d=4:alpha=1[bgfade];" +
+                    // Overlay black with fading background
+                    "[black][bgfade]overlay=0:0:shortest=0:format=auto[prebg];" +
+                    // Text overlay: fade in from 7s over 4s (ends at 11s)
+                    "[2:v]scale=1080:1920,format=rgba,fade=in:st=7:d=4:alpha=1[ovrl];" +
+                    "[prebg][ovrl]overlay=0:0:shortest=1:format=auto[vout];" +
+                    // Narration: delay 11 seconds (11000ms) to start after text is fully visible
+                    "[3:a]adelay=11000|11000[aout]",
                     "-map", "[vout]", "-map", "[aout]"
                 ]
             }

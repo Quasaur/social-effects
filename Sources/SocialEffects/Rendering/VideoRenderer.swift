@@ -61,7 +61,9 @@ class VideoRenderer {
         writer.startSession(atSourceTime: .zero)
         
         // Render frames
-        let totalFrames = Int(durationSeconds * Double(fps))
+        // Add extra seconds for music at the end
+        let extraSeconds: Double = 4.0
+        let totalFrames = Int((durationSeconds + extraSeconds) * Double(fps))
         var frameCount = 0
         
         let semaphore = DispatchSemaphore(value: 0)

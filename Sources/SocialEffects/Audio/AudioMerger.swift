@@ -11,29 +11,36 @@ class AudioMerger {
     /// - Returns: URL of merged audio file
     func merge(audioFiles: [URL], outputPath: URL) async throws -> URL {
         let composition = AVMutableComposition()
-        
         guard let audioTrack = composition.addMutableTrack(
             withMediaType: .audio,
             preferredTrackID: kCMPersistentTrackID_Invalid
         ) else {
             throw AudioError.trackCreationFailed
         }
-        
+
         var insertTime = CMTime.zero
-        
-        for audioFile in audioFiles {
+        var filesToMerge = audioFiles
+
+        // Insert 0.7-second silence between narration and CTA outro
+        if audioFiles.count >= 2 {
+            let silenceURL = outputPath.deletingLastPathComponent().appendingPathComponent("_silence_0.7s.m4a")
+            if !FileManager.default.fileExists(atPath: silenceURL.path) {
+                try SilenceGenerator.generateSilence(duration: 0.7, outputURL: silenceURL)
+            }
+            filesToMerge = [audioFiles[0], silenceURL, audioFiles[1]] + audioFiles.dropFirst(2)
+        }
+
+        for audioFile in filesToMerge {
             let asset = AVURLAsset(url: audioFile)
             guard let assetTrack = try await asset.loadTracks(withMediaType: .audio).first else {
                 throw AudioError.audioLoadFailed
             }
-            
             let duration = try await asset.load(.duration)
             let timeRange = CMTimeRange(start: .zero, duration: duration)
-            
             try audioTrack.insertTimeRange(timeRange, of: assetTrack, at: insertTime)
             insertTime = CMTimeAdd(insertTime, duration)
         }
-        
+
         // Export
         guard let exporter = AVAssetExportSession(
             asset: composition,
@@ -41,13 +48,13 @@ class AudioMerger {
         ) else {
             throw AudioError.exporterCreationFailed
         }
-        
+
         try? FileManager.default.removeItem(at: outputPath)
         exporter.outputURL = outputPath
         exporter.outputFileType = .m4a
-        
+
         await exporter.export()
-        
+
         if exporter.status == .completed {
             return outputPath
         } else {
