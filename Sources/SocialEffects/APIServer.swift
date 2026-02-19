@@ -5,9 +5,18 @@ import Network
 class APIServer {
     private var listener: NWListener?
     private let port: NWEndpoint.Port
+    private var _shouldShutdown = false
     
     init(port: UInt16 = 5390) {
         self.port = NWEndpoint.Port(integerLiteral: port)
+    }
+    
+    var shouldShutdown: Bool {
+        return _shouldShutdown
+    }
+    
+    func requestShutdown() {
+        _shouldShutdown = true
     }
     
     func start() throws {
@@ -73,6 +82,8 @@ class APIServer {
         switch (method, path) {
         case ("POST", "/generate"):
             handleGenerate(request: request, connection: connection)
+        case ("POST", "/shutdown"):
+            handleShutdown(connection: connection)
         case ("GET", "/health"):
             sendResponse(connection, status: 200, body: "{\"status\":\"ok\"}", contentType: "application/json")
         default:
@@ -135,6 +146,11 @@ class APIServer {
         }
         
         sendResponse(connection, status: 400, body: "{\"error\":\"Missing body\"}", contentType: "application/json")
+    }
+    
+    private func handleShutdown(connection: NWConnection) {
+        sendResponse(connection, status: 200, body: "{\"status\":\"shutting_down\"}", contentType: "application/json")
+        requestShutdown()
     }
     
     private func sendResponse(_ connection: NWConnection, status: Int, body: String, contentType: String = "text/plain") {
@@ -240,12 +256,17 @@ extension SocialEffectsCLI {
             print("📖 API Endpoints:")
             print("   POST /generate - Generate video")
             print("      Body: {\"title\":\"...\",\"content\":\"...\",\"ping_pong\":true}")
+            print("   POST /shutdown - Shutdown server")
             print("   GET  /health   - Health check")
             print("\n⚠️  Press Ctrl+C to stop\n")
             
-            while true {
+            while !server.shouldShutdown {
                 try? await Task.sleep(nanoseconds: 1_000_000_000)
             }
+            
+            print("\n🛑 Shutting down API server...")
+            server.stop()
+            print("✅ Server stopped")
         } catch {
             print("❌ Failed to start server: \(error)")
         }
