@@ -2,25 +2,9 @@
 	"folders": [
 		{
 			"path": "."
-		},
-		{
-			"path": "../../../../Volumes/My Passport/antigravity-brain"
-		},
-		{
-			"path": "../social-marketer"
-		},
-		{
-			"path": "../WISDOM/ScreenShots"
 		}
 	],
-	"settings": {
-		"chat.tools.terminal.autoApprove": {
-			"ffmpeg": true,
-			"swift": true,
-			"git add": true,
-			"git push": true
-		}
-	},
+	"settings": {},
 	"launch": {
 		"configurations": [
 			{

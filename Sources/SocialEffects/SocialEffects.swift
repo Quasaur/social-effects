@@ -1,4 +1,4 @@
-atimport Foundation
+import Foundation
 import AVFoundation
 import CryptoKit
 
@@ -46,6 +46,8 @@ struct SocialEffectsCLI {
             await testGeminiAPI()
         case "batch-demos":
             await batchGenerateDemos()
+        case "api-server":
+            await startAPIServer(arguments: Array(arguments.dropFirst(2)))
         case "help", "--help", "-h":
             printHelp()
         default:
@@ -64,6 +66,7 @@ struct SocialEffectsCLI {
               --content "..."                  Quote/thought text
               --source "..."                   Attribution (default: wisdombook.life)
               --background auto|<path>         Background video (default: auto)
+              --ping-pong                      Use ping-pong background (forward-back-forward)
               --border gold|silver|minimal|art-deco|classic-scroll|sacred-geometry|celtic-knot|fleur-de-lis|baroque|victorian|golden-vine|stained-glass|modern-glow|none
                                                Border style (default: gold)
               --output <path>                  Output file (default: shared drive)
@@ -84,6 +87,10 @@ struct SocialEffectsCLI {
           test-api                             Test Gemini API connection
           
           batch-demos                          Generate 10 demo wisdom videos (original functionality)
+          
+          api-server [port]                    Start HTTP API server (default port: 5390)
+                                               POST /generate - Generate video via JSON
+                                               GET  /health   - Health check
           
           help                                 Show this help message
         
@@ -264,76 +271,11 @@ struct SocialEffectsCLI {
     }
     
     static func batchGenerateDemos() async {
-        // Original functionality preserved
-        print("🎬 Batch Generating 10 Demo Videos")
-        print("===================================\n")
-        
-        let demos = [
-            (1, "True wisdom comes from questions. The wisest person is not the one with all the answers, but the one who asks the best questions."),
-            (2, "Courage is not the absence of fear, but the triumph over it."),
-            (3, "The obstacle is the path. Every challenge contains the seed of growth."),
-            (4, "You cannot control what happens to you, but you can control how you respond."),
-            (5, "Excellence is not a destination, it is a continuous journey."),
-            (6, "The quality of your life is determined by the quality of your questions."),
-            (7, "Discipline is choosing between what you want now and what you want most."),
-            (8, "Character is revealed in how you treat those who can do nothing for you."),
-            (9, "The meaning of life is found in the service of others, not in the pursuit of pleasure."),
-            (10, "Your legacy is not what you accumulate, but what you give away.")
-        ]
-        
-        let generator = TextGraphicsGenerator()
-        let merger = AudioMerger()
-        let renderer = VideoRenderer()
-        
-        let ctaPath = URL(fileURLWithPath: "/Volumes/My Passport/social-media-content/social-effects/audio/cta_outro.mp3")
-        
-        var successCount = 0
-        
-        for (id, quote) in demos {
-            print("[\(id)/10] Demo \(id)")
-            print("─────────────────")
-            
-            do {
-                // Paths
-                let graphicPath = URL(fileURLWithPath: "/Volumes/My Passport/social-media-content/social-effects/graphics/demo_\(String(format: "%02d", id)).png")
-                let narrationPath = URL(fileURLWithPath: "/Volumes/My Passport/social-media-content/social-effects/audio/demo_\(String(format: "%02d", id))_narration.mp3")
-                let mergedAudioPath = URL(fileURLWithPath: "/Volumes/My Passport/social-media-content/social-effects/audio/demo_\(String(format: "%02d", id))_with_cta.m4a")
-                let videoPath = URL(fileURLWithPath: "/Volumes/My Passport/social-media-content/social-effects/video/demo_\(String(format: "%02d", id)).mp4")
-                
-                // Step 1: Generate graphic
-                print("  🎨 Generating graphic...")
-                _ = try generator.generate(text: quote, outputPath: graphicPath)
-                
-                // Step 2: Merge audio
-                print("  🎙️ Merging audio + CTA...")
-                let audioWithCTA = try await merger.merge(
-                    audioFiles: [narrationPath, ctaPath],
-                    outputPath: mergedAudioPath
-                )
-                
-                // Step 3: Render video
-                print("  🎥 Rendering video...")
-                _ = try await renderer.render(
-                    graphic: graphicPath,
-                    audio: audioWithCTA,
-                    effect: "cross-dissolve",
-                    duration: 15,
-                    output: videoPath
-                )
-                
-                print("  ✅ Complete!\n")
-                successCount += 1
-                
-            } catch {
-                print("  ❌ Error: \(error)\n")
-            }
-        }
-        
-        print("═══════════════════════════════════")
-        print("🎉 BATCH COMPLETE!")
-        print("   Generated: \(successCount)/10 videos")
-        print("   Location: /Volumes/My Passport/social-media-content/social-effects/video/")
-        print("\n💰 YOU NOW HAVE 10 PROFESSIONAL WISDOM VIDEOS!")
+        // DEPRECATED: This function used VideoRenderer which has been removed.
+        // The batch-demos command now uses FFmpeg-based generation via generateVideoFromRSS.
+        print("⚠️  batch-demos command is deprecated.")
+        print("Please use generate-video command instead:")
+        print("  swift run SocialEffects generate-video --title \"...\" --content \"...\"")
     }
  
     // MARK: - Pika Video Generation
@@ -552,6 +494,9 @@ struct SocialEffectsCLI {
         var borderArg = "gold"
         var outputJSON = false
         var outputPathArg: String? = nil
+        var pingPongBackground = false
+        var contentTypeArg: String? = nil
+        var nodeTitleArg: String? = nil
         
         var audioFileArg: String? = nil
         var blackScreenDuration: Int = 0
@@ -576,6 +521,12 @@ struct SocialEffectsCLI {
             } else if arg == "--output" && i + 1 < arguments.count {
                 outputPathArg = arguments[i+1]
                 i += 2
+            } else if arg == "--content-type" && i + 1 < arguments.count {
+                contentTypeArg = arguments[i+1]
+                i += 2
+            } else if arg == "--node-title" && i + 1 < arguments.count {
+                nodeTitleArg = arguments[i+1]
+                i += 2
             } else if arg == "--output-json" {
                 outputJSON = true
                 i += 1
@@ -585,6 +536,9 @@ struct SocialEffectsCLI {
             } else if arg == "--black-screen" && i + 1 < arguments.count {
                 if let val = Int(arguments[i+1]) { blackScreenDuration = val }
                 i += 2
+            } else if arg == "--ping-pong" {
+                pingPongBackground = true
+                i += 1
             } else {
                 i += 1
             }
@@ -606,29 +560,11 @@ struct SocialEffectsCLI {
         let audioMerger = AudioMerger()
         // VideoRenderer replaced with FFmpeg
         
-        let elevenLabsKey = ProcessInfo.processInfo.environment["ELEVEN_LABS_API_KEY"]
-        
-        // Voice providers: Apple Jamie (primary, free) + ElevenLabs (optional narration fallback)
-        let voiceService: ElevenLabsVoice?
-        let appleVoice: AppleVoice?
-        
-        // Apple Jamie is always preferred — also needed for CTA outro
-        if !outputJSON { print("🔍 Checking voice providers...") }
-        
-        // Check if Jamie voice is available
-        let jamieVoice = AVSpeechSynthesisVoice(identifier: "com.apple.voice.premium.en-US.Jamie")
-        if jamieVoice != nil {
-            appleVoice = AppleVoice()
-            voiceService = nil
-            if !outputJSON { print("🍎 Using Apple TTS (Jamie Premium)") }
-        } else if let key = elevenLabsKey, !key.isEmpty {
-            voiceService = ElevenLabsVoice(apiKey: key)
-            appleVoice = nil
-            if !outputJSON { print("🎙️ Using ElevenLabs (Jamie not available)") }
-        } else {
-            voiceService = nil
-            appleVoice = nil
-            if !outputJSON { print("⚠️ Warning: No voice provider available. Install Jamie Premium voice.") }
+        // Initialize KokoroVoice for TTS (primary voice provider)
+        let kokoroVoice = KokoroVoice()
+        if !outputJSON { 
+            print("🔍 Checking voice providers...")
+            print("🎙️ Using Kokoro TTS (Liam voice)") 
         }
         
         // Paths
@@ -637,7 +573,6 @@ struct SocialEffectsCLI {
         let baseFilename = "rss_video_\(timestamp)"
         
         let graphicPath = tempDir.appendingPathComponent("\(baseFilename)_graphic.png")
-        let narrationPath = tempDir.appendingPathComponent("\(baseFilename)_narration.m4a")
         let mergedAudioPath = tempDir.appendingPathComponent("\(baseFilename)_audio.m4a")
         
         // Determine Output Path (shared drive primary, --output override, local fallback)
@@ -671,7 +606,7 @@ struct SocialEffectsCLI {
                     backgroundPath = URL(fileURLWithPath: "\(bgDir)/\(match)")
                     if !outputJSON { print("🎨 Background: \(match) (Slot \(slotStr))") }
                 } else {
-                    let extBgDir = "/Volumes/My Passport/social-media-content/social-effects/backgrounds"
+                    let extBgDir = "/Volumes/My Passport/social-media-content/social-effects/output/backgrounds"
                     let extFiles = (try? FileManager.default.contentsOfDirectory(atPath: extBgDir)) ?? []
                      if let match = extFiles.first(where: { $0.hasPrefix(slotStr) && $0.hasSuffix(".mp4") && !$0.contains("landscape") && !$0.contains("original") }) {
                         backgroundPath = URL(fileURLWithPath: "\(extBgDir)/\(match)")
@@ -706,63 +641,43 @@ struct SocialEffectsCLI {
                 border: borderStyle
             )
             
-            // 3. Generate or Use Provided Voice
+            // 3. Generate or Use Provided Voice (Kokoro TTS)
+            let narrationWAVPath = tempDir.appendingPathComponent("\(baseFilename)_narration.wav")
+            
             if let audioFileArg = audioFileArg {
                 if !outputJSON { print("🎙️ Using user-provided audio file: \(audioFileArg)") }
                 let userAudioURL = URL(fileURLWithPath: audioFileArg)
                 if FileManager.default.fileExists(atPath: userAudioURL.path) {
-                    try FileManager.default.copyItem(at: userAudioURL, to: narrationPath)
+                    try FileManager.default.copyItem(at: userAudioURL, to: narrationWAVPath)
                 } else {
                     throw NSError(domain: "SocialEffects", code: 4, userInfo: [NSLocalizedDescriptionKey: "Provided audio file not found: \(audioFileArg)"])
                 }
             } else {
-                let narrationText = content
-                let contentHash = sha256(narrationText)
-                let cacheDir = "output/cache/audio"
-                try? FileManager.default.createDirectory(atPath: cacheDir, withIntermediateDirectories: true)
-
-                let currentDirURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-                let cachePath = currentDirURL.appendingPathComponent(cacheDir).appendingPathComponent("\(contentHash).m4a")
-
-                // Check Cache first
-                if FileManager.default.fileExists(atPath: cachePath.path) {
-                    if !outputJSON { print("📦 Using cached voice: \(contentHash).m4a") }
-                    try FileManager.default.copyItem(at: cachePath, to: narrationPath)
-                } else {
-                    // Not in cache — generate with available provider
-                    if let voiceService = voiceService {
-                        if !outputJSON { print("🎙️ Generating voice (ElevenLabs/Donovan)...") }
-                        _ = try await voiceService.generateVoice(text: narrationText, outputPath: narrationPath)
-
-                        // Save to cache
-                        if !outputJSON { print("💾 Caching voice to: \(cachePath.lastPathComponent)") }
-                        try? FileManager.default.copyItem(at: narrationPath, to: cachePath)
-                    } else if let appleVoice = appleVoice {
-                        if !outputJSON { print("🎙️ Generating voice (Apple/Jamie)...") }
-                        _ = try appleVoice.generateVoice(text: narrationText, outputPath: narrationPath)
-
-                        // Save to cache
-                        if !outputJSON { print("💾 Caching voice to: \(cachePath.lastPathComponent)") }
-                        try? FileManager.default.copyItem(at: narrationPath, to: cachePath)
-                    } else {
-                        if !outputJSON { print("⚠️ No voice provider available — cannot generate audio") }
-                        throw NSError(domain: "SocialEffects", code: 3, userInfo: [NSLocalizedDescriptionKey: "No voice provider available. Install Jamie Premium voice or set ELEVEN_LABS_API_KEY."])
-                    }
+                // Generate narration with Kokoro
+                if !outputJSON { print("🎙️ Generating narration with Kokoro (Liam)...") }
+                let narrationWAV = try await kokoroVoice.synthesize(text: content, voice: KokoroVoice.defaultVoice)
+                
+                // Convert WAV to M4A for compatibility
+                let wavURL = URL(fileURLWithPath: narrationWAV)
+                if FileManager.default.fileExists(atPath: narrationWAV) {
+                    try FileManager.default.copyItem(at: wavURL, to: narrationWAVPath)
                 }
             }
             
-            // 4. Generate CTA outro with Jamie + merge
+            // 4. Generate CTA outro with Kokoro + merge
             let finalAudioPath: URL
-            if !outputJSON { print("🎚️ Merging audio...") }
-            if let appleVoice = appleVoice {
-                let ctaPath = try appleVoice.generateCTA()
-                if !outputJSON { print("🎙️ CTA outro: Jamie voice (cached)") }
-                _ = try await audioMerger.merge(audioFiles: [narrationPath, ctaPath], outputPath: mergedAudioPath)
-                finalAudioPath = mergedAudioPath
-            } else {
-                if !outputJSON { print("⚠️ No Apple voice for CTA, using narration only") }
-                finalAudioPath = narrationPath
-            }
+            if !outputJSON { print("🎚️ Generating CTA and merging audio...") }
+            
+            // Generate CTA with Kokoro (am_liam voice)
+            let ctaWAV = try await kokoroVoice.generateCTA(voice: KokoroVoice.defaultVoice)
+            if !outputJSON { print("🎙️ CTA outro: Kokoro/Liam voice") }
+            
+            // Use WAV files directly - AudioMerger handles conversion to M4A
+            let ctaWAVPath = URL(fileURLWithPath: ctaWAV)
+            
+            // Merge narration + CTA (WAV files directly, AudioMerger will export to M4A)
+            _ = try await audioMerger.merge(audioFiles: [narrationWAVPath, ctaWAVPath], outputPath: mergedAudioPath)
+            finalAudioPath = mergedAudioPath
             
             // 5. Render Video (FFmpeg)
             if !outputJSON { print("🎥 Rendering video with FFmpeg...") }
@@ -787,69 +702,116 @@ struct SocialEffectsCLI {
                 }
             }
             
-            // Build FFmpeg arguments dynamically based on music availability
-            // Input 0: background video (loop, video-only — drop its audio track)
-            var ffmpegArgs = ["-y", "-nostdin", "-stream_loop", "-1", "-an", "-i", backgroundPath.path]
-            // Input 1: overlay graphic (loop single PNG for entire duration)
-            ffmpegArgs += ["-loop", "1", "-i", graphicPath.path]
-            // Input 2: narration + CTA audio
-            ffmpegArgs += ["-i", finalAudioPath.path]
+            // Build FFmpeg arguments dynamically based on music availability and ping-pong
+            var ffmpegArgs: [String]
             
-            // Cinematic timing:
+            // Cinematic timing (ADJUSTED for text to be fully visible when voiceover starts):
             // 0-3s: Black screen with music
             // 3-7s: Background fades in (4s)
-            // 7-11s: Text overlay fades in (4s)
-            // 11s: Narration starts
+            // 7-9s: Text overlay fades in (2s) - COMPLETED by 9s
+            // 9s: Narration starts (text is fully visible)
             // After narration + 2s gap: CTA outro (handled by AudioMerger)
             
-            // Always use cinematic intro with black screen
             let cinematicBlackDuration = 3
-            ffmpegArgs.insert(contentsOf: ["-f", "lavfi", "-t", String(cinematicBlackDuration), "-i", "color=black:size=1080x1920:rate=30"], at: 0)
+            let bgFadeStart = 3
+            let bgFadeDuration = 4
+            let textFadeStart = 7
+            let textFadeDuration = 2
+            let narrationStart = 9
             
-            // Input indices after inserting black screen:
-            // Input 0: black screen (3s)
-            // Input 1: background video (looped)
-            // Input 2: overlay graphic (looped PNG)
-            // Input 3: narration + CTA audio
-            // Input 4: background music (if present)
-            
-            if hasBgMusic {
-                ffmpegArgs += ["-stream_loop", "-1", "-i", backgroundMusicPath]
-                ffmpegArgs += [
-                    "-filter_complex",
-                    // Black screen: scale and prepare
-                    "[0:v]scale=1080:1920,setsar=1[black];" +
-                    // Background: scale, pad, and fade in from 3s over 4s (ends at 7s)
-                    "[1:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2,setsar=1,format=rgba,fade=in:st=3:d=4:alpha=1[bgfade];" +
-                    // Overlay black with fading background
-                    "[black][bgfade]overlay=0:0:shortest=0:format=auto[prebg];" +
-                    // Text overlay: fade in from 7s over 4s (ends at 11s)
-                    "[2:v]scale=1080:1920,format=rgba,fade=in:st=7:d=4:alpha=1[ovrl];" +
-                    "[prebg][ovrl]overlay=0:0:shortest=1:format=auto[vout];" +
-                    // Narration: delay 11 seconds (11000ms) to start after text is fully visible
-                    "[3:a]adelay=11000|11000[narr];" +
-                    // Background music: low volume (14%)
-                    "[4:a]volume=0.14[musiclow];" +
-                    // Mix narration with music, end when narration ends
-                    "[narr][musiclow]amix=inputs=2:duration=first:dropout_transition=2[aout]",
-                    "-map", "[vout]", "-map", "[aout]"
-                ]
+            if pingPongBackground {
+                // Ping-pong mode: forward-reverse-forward for seamless continuity
+                ffmpegArgs = ["-y", "-nostdin"]
+                // Create ping-pong background stream using reverse filter
+                // Input 0: original background (looped internally via filter)
+                ffmpegArgs += ["-an", "-i", backgroundPath.path]
+                // Input 1: overlay graphic
+                ffmpegArgs += ["-loop", "1", "-i", graphicPath.path]
+                // Input 2: narration + CTA audio
+                ffmpegArgs += ["-i", finalAudioPath.path]
+                // Input 3: black screen
+                ffmpegArgs += ["-f", "lavfi", "-t", String(cinematicBlackDuration), "-i", "color=black:size=1080x1920:rate=30"]
+                
+                // For ping-pong, we need to trim the input to ensure exact frame counts match
+                // Get video duration and frame rate for proper trimming
+                let bgAsset = AVURLAsset(url: backgroundPath)
+                let bgDuration = try await bgAsset.load(.duration).seconds
+                let bgDurationMs = Int(bgDuration * 1000)
+                
+                if hasBgMusic {
+                    ffmpegArgs += ["-stream_loop", "-1", "-i", backgroundMusicPath]
+                    ffmpegArgs += [
+                        "-filter_complex",
+                        // Process background: trim to exact duration, scale, then split for ping-pong
+                        "[0:v]trim=duration=8,scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2,setsar=1,setpts=PTS-STARTPTS[orig];" +
+                        "[orig]split=3[orig1][revin][orig2];" +
+                        "[revin]reverse,setpts=PTS-STARTPTS[revout];" +
+                        "[orig1][revout][orig2]concat=n=3:v=1:a=0[pingpong];" +
+                        // Fade in ping-pong background from 3s over 4s
+                        "[pingpong]fade=in:st=\(bgFadeStart):d=\(bgFadeDuration):alpha=1[bgfade];" +
+                        // Black screen preparation
+                        "[3:v]scale=1080:1920,setsar=1[black];" +
+                        "[black][bgfade]overlay=0:0:shortest=0:format=auto[prebg];" +
+                        // Text overlay: fade in from 7s over 2s (completed by 9s)
+                        "[1:v]scale=1080:1920,format=rgba,fade=in:st=\(textFadeStart):d=\(textFadeDuration):alpha=1[ovrl];" +
+                        "[prebg][ovrl]overlay=0:0:shortest=1:format=auto[vout];" +
+                        // Narration: delay 9 seconds (9000ms) to start when text is fully visible
+                        "[2:a]adelay=\(narrationStart)000|\(narrationStart)000[narr];" +
+                        // Background music: low volume (14%)
+                        "[4:a]volume=0.14[musiclow];" +
+                        "[narr][musiclow]amix=inputs=2:duration=first:dropout_transition=2[aout]",
+                        "-map", "[vout]", "-map", "[aout]"
+                    ]
+                } else {
+                    ffmpegArgs += [
+                        "-filter_complex",
+                        "[0:v]trim=duration=8,scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2,setsar=1,setpts=PTS-STARTPTS[orig];" +
+                        "[orig]split=3[orig1][revin][orig2];" +
+                        "[revin]reverse,setpts=PTS-STARTPTS[revout];" +
+                        "[orig1][revout][orig2]concat=n=3:v=1:a=0[pingpong];" +
+                        "[pingpong]fade=in:st=\(bgFadeStart):d=\(bgFadeDuration):alpha=1[bgfade];" +
+                        "[3:v]scale=1080:1920,setsar=1[black];" +
+                        "[black][bgfade]overlay=0:0:shortest=0:format=auto[prebg];" +
+                        "[1:v]scale=1080:1920,format=rgba,fade=in:st=\(textFadeStart):d=\(textFadeDuration):alpha=1[ovrl];" +
+                        "[prebg][ovrl]overlay=0:0:shortest=1:format=auto[vout];" +
+                        "[2:a]adelay=\(narrationStart)000|\(narrationStart)000[aout]",
+                        "-map", "[vout]", "-map", "[aout]"
+                    ]
+                }
+                if !outputJSON { print("🔄 Using ping-pong background (forward-back-forward)") }
             } else {
-                ffmpegArgs += [
-                    "-filter_complex",
-                    // Black screen: scale and prepare
-                    "[0:v]scale=1080:1920,setsar=1[black];" +
-                    // Background: scale, pad, and fade in from 3s over 4s (ends at 7s)
-                    "[1:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2,setsar=1,format=rgba,fade=in:st=3:d=4:alpha=1[bgfade];" +
-                    // Overlay black with fading background
-                    "[black][bgfade]overlay=0:0:shortest=0:format=auto[prebg];" +
-                    // Text overlay: fade in from 7s over 4s (ends at 11s)
-                    "[2:v]scale=1080:1920,format=rgba,fade=in:st=7:d=4:alpha=1[ovrl];" +
-                    "[prebg][ovrl]overlay=0:0:shortest=1:format=auto[vout];" +
-                    // Narration: delay 11 seconds (11000ms) to start after text is fully visible
-                    "[3:a]adelay=11000|11000[aout]",
-                    "-map", "[vout]", "-map", "[aout]"
-                ]
+                // Standard loop mode
+                ffmpegArgs = ["-y", "-nostdin", "-stream_loop", "-1", "-an", "-i", backgroundPath.path]
+                ffmpegArgs += ["-loop", "1", "-i", graphicPath.path]
+                ffmpegArgs += ["-i", finalAudioPath.path]
+                ffmpegArgs.insert(contentsOf: ["-f", "lavfi", "-t", String(cinematicBlackDuration), "-i", "color=black:size=1080x1920:rate=30"], at: 0)
+                
+                if hasBgMusic {
+                    ffmpegArgs += ["-stream_loop", "-1", "-i", backgroundMusicPath]
+                    ffmpegArgs += [
+                        "-filter_complex",
+                        "[0:v]scale=1080:1920,setsar=1[black];" +
+                        "[1:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2,setsar=1,format=rgba,fade=in:st=\(bgFadeStart):d=\(bgFadeDuration):alpha=1[bgfade];" +
+                        "[black][bgfade]overlay=0:0:shortest=0:format=auto[prebg];" +
+                        "[2:v]scale=1080:1920,format=rgba,fade=in:st=\(textFadeStart):d=\(textFadeDuration):alpha=1[ovrl];" +
+                        "[prebg][ovrl]overlay=0:0:shortest=1:format=auto[vout];" +
+                        "[3:a]adelay=\(narrationStart)000|\(narrationStart)000[narr];" +
+                        "[4:a]volume=0.14[musiclow];" +
+                        "[narr][musiclow]amix=inputs=2:duration=first:dropout_transition=2[aout]",
+                        "-map", "[vout]", "-map", "[aout]"
+                    ]
+                } else {
+                    ffmpegArgs += [
+                        "-filter_complex",
+                        "[0:v]scale=1080:1920,setsar=1[black];" +
+                        "[1:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2,setsar=1,format=rgba,fade=in:st=\(bgFadeStart):d=\(bgFadeDuration):alpha=1[bgfade];" +
+                        "[black][bgfade]overlay=0:0:shortest=0:format=auto[prebg];" +
+                        "[2:v]scale=1080:1920,format=rgba,fade=in:st=\(textFadeStart):d=\(textFadeDuration):alpha=1[ovrl];" +
+                        "[prebg][ovrl]overlay=0:0:shortest=1:format=auto[vout];" +
+                        "[3:a]adelay=\(narrationStart)000|\(narrationStart)000[aout]",
+                        "-map", "[vout]", "-map", "[aout]"
+                    ]
+                }
             }
             
             ffmpegArgs += [
@@ -910,7 +872,7 @@ struct SocialEffectsCLI {
             
             // Cleanup
             try? FileManager.default.removeItem(at: graphicPath)
-            try? FileManager.default.removeItem(at: narrationPath)
+            try? FileManager.default.removeItem(at: narrationWAVPath)
             try? FileManager.default.removeItem(at: mergedAudioPath)
             
         } catch {

@@ -25,7 +25,7 @@ class AudioMerger {
         if audioFiles.count >= 2 {
             let silenceURL = outputPath.deletingLastPathComponent().appendingPathComponent("_silence_0.7s.m4a")
             if !FileManager.default.fileExists(atPath: silenceURL.path) {
-                try SilenceGenerator.generateSilence(duration: 0.7, outputURL: silenceURL)
+                try await generateSilence(duration: 0.7, outputURL: silenceURL)
             }
             filesToMerge = [audioFiles[0], silenceURL, audioFiles[1]] + audioFiles.dropFirst(2)
         }
@@ -76,5 +76,25 @@ class AudioMerger {
             case .exportFailed(let reason): return "Export failed: \(reason)"
             }
         }
+    }
+    
+    /// Generates a silent audio file of specified duration
+    private func generateSilence(duration: Double, outputURL: URL) async throws {
+        let format = AVAudioFormat(standardFormatWithSampleRate: 44100, channels: 1)!
+        let frameCount = AVAudioFrameCount(duration * 44100)
+        
+        guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount) else {
+            throw AudioError.exportFailed("Failed to create audio buffer")
+        }
+        buffer.frameLength = frameCount
+        
+        // Zero out the buffer (silence)
+        let audioBuffer = buffer.floatChannelData![0]
+        for i in 0..<Int(frameCount) {
+            audioBuffer[i] = 0.0
+        }
+        
+        let audioFile = try AVAudioFile(forWriting: outputURL, settings: format.settings)
+        try audioFile.write(from: buffer)
     }
 }
