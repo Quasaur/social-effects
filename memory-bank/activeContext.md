@@ -6,15 +6,19 @@
 ## Recent Changes
 
 ### Latest Updates
+- **Shutdown Endpoint**: Added `POST /shutdown` API endpoint for graceful shutdown
+- **Codebase Cleanup**: Removed 2,300+ lines of obsolete code (unused TTS services, MLT, Blender scripts)
 - **Kokoro TTS Integration**: Primary voice provider using `am_liam` voice
 - **CTA Outro**: Now uses Kokoro TTS (am_liam) for consistent voice branding
 - **Video Pipeline**: Stabilized FFmpeg-based composition
 - **Audio Caching**: Cleared before each generation to ensure fresh, high-quality TTS
+- **Memory Bank**: Initialized with 6 core documentation files
 
 ### Technical Decisions
 - MLT Framework abandoned in favor of FFmpeg + AVFoundation
 - Apple Jamie voice replaced by Kokoro for better quality/consistency
 - Ping-pong background mode added for seamless looping
+- Client (social-marketer) can now shut down service via API
 
 ## Current Work Focus
 
