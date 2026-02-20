@@ -194,25 +194,50 @@ class APIServer {
         }
         
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/swift")
-        process.arguments = ["run", "SocialEffects"] + args
+        // Use compiled binary directly instead of 'swift run' for reliability
+        let binaryPath = "/Users/quasaur/Developer/social-effects/.build/debug/SocialEffects"
+        process.executableURL = URL(fileURLWithPath: binaryPath)
+        process.arguments = args
         process.currentDirectoryURL = URL(fileURLWithPath: "/Users/quasaur/Developer/social-effects")
         
         let pipe = Pipe()
+        let errPipe = Pipe()
         process.standardOutput = pipe
-        process.standardError = FileHandle.nullDevice
+        process.standardError = errPipe
         
+        // Log the command for debugging
         try process.run()
         process.waitUntilExit()
         
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-           let success = json["success"] as? Bool,
-           success,
-           let path = json["videoPath"] as? String {
+        let errData = errPipe.fileHandleForReading.readDataToEndOfFile()
+        
+        // Log stderr for debugging if there's an error
+        if process.terminationStatus != 0 {
+            let errOutput = String(data: errData, encoding: .utf8) ?? "Unknown error"
+            throw NSError(domain: "APIServer", code: Int(process.terminationStatus), userInfo: [NSLocalizedDescriptionKey: "Video generation failed: \(errOutput)"])
+        }
+        
+        // Extract JSON from the last line of output (process outputs human-readable text + JSON)
+        let outputStr = String(data: data, encoding: .utf8) ?? ""
+        let lines = outputStr.components(separatedBy: .newlines)
+        
+        // Find the last non-empty line which should be the JSON response
+        let nonEmptyLines = lines.filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+        guard let jsonLine = nonEmptyLines.last,
+              let jsonData = jsonLine.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any],
+              let success = json["success"] as? Bool else {
+            throw NSError(domain: "APIServer", code: 1, userInfo: [NSLocalizedDescriptionKey: "Video generation failed - invalid response"])
+        }
+        
+        if success, let path = json["videoPath"] as? String {
+            print("✅ Video generated: \(path)")
             return path
         } else {
-            throw NSError(domain: "APIServer", code: 1, userInfo: [NSLocalizedDescriptionKey: "Video generation failed"])
+            let errorMsg = json["error"] as? String ?? "Unknown error"
+            print("❌ Video generation failed: \(errorMsg)")
+            throw NSError(domain: "APIServer", code: 1, userInfo: [NSLocalizedDescriptionKey: "Video generation failed: \(errorMsg)"])
         }
     }
 }
