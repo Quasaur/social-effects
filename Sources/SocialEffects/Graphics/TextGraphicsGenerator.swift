@@ -103,14 +103,16 @@ class TextGraphicsGenerator {
             let titleWidth = CGFloat(width) * 0.70
             let titleX = (CGFloat(width) - titleWidth) / 2
             let titleY = CGFloat(height) * 0.78  // Upper area (AppKit y=0 is bottom)
-            let titleHeight: CGFloat = 100
+            let titleHeight: CGFloat = 160  // Increased from 100 to allow multi-line titles
             
             let titleParagraph = NSMutableParagraphStyle()
             titleParagraph.alignment = .center
+            titleParagraph.lineBreakMode = .byWordWrapping  // Enable word wrapping
+            titleParagraph.lineSpacing = 8  // Tighter line spacing for titles
             
             // Calculate title font size based on content font size (always larger)
             let contentFontSize = calculateFontSize(for: text, width: textWidth)
-            let titleFontSize = contentFontSize * 1.25  // 25% larger than content text
+            let titleFontSize = contentFontSize * 1.15  // Reduced from 1.25 to prevent overflow
             
             let titleAttributes: [NSAttributedString.Key: Any] = [
                 .font: NSFont(name: "Georgia-Bold", size: titleFontSize) ?? NSFont.boldSystemFont(ofSize: titleFontSize),
@@ -125,7 +127,7 @@ class TextGraphicsGenerator {
         
         // Calculate text area (60% of width, centered)
         let textX = (CGFloat(width) - textWidth) / 2
-        let textY = CGFloat(height) * 0.35 // Position from bottom
+        let textY = CGFloat(height) * 0.28 // Position from bottom (lowered from 0.35)
         let textHeight = CGFloat(height) * 0.40
         
         let textRect = NSRect(x: textX, y: textY, width: textWidth, height: textHeight)
@@ -156,7 +158,7 @@ class TextGraphicsGenerator {
         ]
         
         let attrText = NSAttributedString(string: attribution, attributes: attrAttributes)
-        let attrY = textY - 60  // Just below content area
+        let attrY = textY - 80  // Just below content area (adjusted for new content position)
         let attrRect = NSRect(x: textX, y: attrY, width: textWidth, height: 60)
         attrText.draw(in: attrRect)
         
