@@ -115,6 +115,31 @@ swift run SocialEffects generate-video --title "Test" --content "..."  # → vid
 
 **Violation of this rule causes test content to be accidentally posted to social media platforms.**
 
+## Standard Production Video Pattern
+
+**ALL uploaded videos MUST follow this exact pattern:**
+
+```
+0-3s:   Black screen with background music
+3-7s:   Background video fades in (4 seconds)
+7-8s:   1-second delay (background visible, text not yet showing)
+8-12s:  Text overlay and border fade in (4 seconds)
+12s:    Narration starts (text is fully visible)
+End:    CTA outro: "For more wisdom treasure, visit Wisdom Book dot Life!"
+```
+
+**Technical Settings:**
+- **Ping-pong background:** ENABLED (forward-reverse-forward seamless loop)
+- **Background source:** External drive (`/Volumes/My Passport/.../backgrounds/`)
+- **Minimum duration:** 15 seconds (extends if audio is longer)
+- **Outro text:** "For more wisdom treasure, visit Wisdom Book dot Life!"
+
+**Example Reference Video:**
+```
+/Volumes/My Passport/social-media-content/social-effects/video/test/test_rss_video.mp4
+Duration: 23.6s | Background: 04_neon_tunnel_flight.mp4 | Border: classic-scroll
+```
+
 ## Key Patterns
 
 ### Video Generation Pipeline (generateVideoFromRSS)
