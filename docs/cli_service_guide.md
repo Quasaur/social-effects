@@ -161,7 +161,34 @@ All files stored on My Passport SSD:
 ├── social-effects/
 │   ├── audio/    # Voice narrations
 │   ├── video/    # Final videos
+│   │   ├── api/  # ⚠️ PRODUCTION VIDEOS - for social media posting
+│   │   └── test/ # ⚠️ TEST VIDEOS - never post these
 │   └── graphics/ # Text overlays
+```
+
+### ⚠️ CRITICAL: Video File Organization Rule
+
+**Videos MUST be organized correctly to prevent accidental social media posts:**
+
+| Folder | Purpose | Example Files |
+|--------|---------|---------------|
+| `video/api/` | Production content for posting | `thought-{Title}-{timestamp}.mp4` |
+| `video/test/` | Test/development content | `test_rss_video.mp4`, `thought-Test_*.mp4` |
+
+**CLI Commands & Their Output Locations:**
+
+```bash
+# Production command - outputs to video/api/
+social-effects generate-video --title "Real Title" --content "..."
+
+# Test command - outputs to video/test/
+social-effects test-video  # saves to video/test/test_rss_video.mp4
+```
+
+**If you accidentally generate a test video to `video/api/`, move it immediately:**
+```bash
+mv "/Volumes/My Passport/social-media-content/social-effects/video/api/thought-Test_*.mp4" \
+   "/Volumes/My Passport/social-media-content/social-effects/video/test/"
 ```
 
 ## Environment Variables

@@ -683,6 +683,16 @@ struct SocialEffectsCLI {
             if !outputJSON { print("🎥 Rendering video with FFmpeg...") }
             let durationSeconds = try await AVURLAsset(url: finalAudioPath).load(.duration).seconds
             
+            // Ensure minimum 15-second duration for TikTok and Instagram Reels compatibility
+            let minDuration: Double = 15.0
+            let targetDuration = max(durationSeconds, minDuration)
+            let needsPadding = targetDuration > durationSeconds
+            
+            if needsPadding && !outputJSON {
+                let padding = targetDuration - durationSeconds
+                print("⏱️ Audio: \(String(format: "%.1f", durationSeconds))s — padding \(String(format: "%.1f", padding))s to reach 15s minimum")
+            }
+            
             try FileManager.default.createDirectory(at: finalVideoPath.deletingLastPathComponent(), withIntermediateDirectories: true)
             
             // FFmpeg command: Loop background, overlay transparent graphic, mix audio with background music
@@ -814,15 +824,29 @@ struct SocialEffectsCLI {
                 }
             }
             
-            ffmpegArgs += [
-                "-c:v", "libx264",
-                "-preset", "medium",
-                "-crf", "23",
-                "-c:a", "aac",
-                "-b:a", "192k",
-                "-shortest",
-                finalVideoPath.path
-            ]
+            // Use -t to enforce minimum duration, -shortest only if no padding needed
+            // This ensures the video continues with background + text overlay for the full duration
+            if needsPadding {
+                ffmpegArgs += [
+                    "-c:v", "libx264",
+                    "-preset", "medium",
+                    "-crf", "23",
+                    "-c:a", "aac",
+                    "-b:a", "192k",
+                    "-t", String(targetDuration),
+                    finalVideoPath.path
+                ]
+            } else {
+                ffmpegArgs += [
+                    "-c:v", "libx264",
+                    "-preset", "medium",
+                    "-crf", "23",
+                    "-c:a", "aac",
+                    "-b:a", "192k",
+                    "-shortest",
+                    finalVideoPath.path
+                ]
+            }
             
             ffmpegProcess.arguments = ffmpegArgs
             
@@ -854,7 +878,7 @@ struct SocialEffectsCLI {
                 let result: [String: Any] = [
                     "success": true,
                     "videoPath": finalVideoPath.path,
-                    "duration": durationSeconds,
+                    "duration": targetDuration,
                     "background": backgroundPath.lastPathComponent
                 ]
                 let jsonData = try JSONSerialization.data(withJSONObject: result, options: [])
@@ -862,6 +886,9 @@ struct SocialEffectsCLI {
             } else {
                 print("\n✅ Video Generated Successfully!")
                 print("📂 Saved to: \(finalVideoPath.path)")
+                if needsPadding {
+                    print("⏱️ Final duration: \(String(format: "%.1f", targetDuration))s (padded from \(String(format: "%.1f", durationSeconds))s)")
+                }
             }
             
             // Debug: save graphic for inspection

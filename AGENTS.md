@@ -95,6 +95,26 @@ Apple's Jamie Premium voice is preferred for TTS and must be installed via Syste
 - Audio cache: `output/cache/audio/`
 - External storage: `/Volumes/My Passport/social-media-content/social-effects/`
 
+### ⚠️ CRITICAL: Video File Organization Rule
+
+**All test/debug videos MUST be saved to `/test/` folder. Only production-ready videos go to `/api/`.**
+
+| Folder | Purpose | Examples |
+|--------|---------|----------|
+| `video/api/` | Production videos for social media posting | RSS-generated content, scheduled posts |
+| `video/test/` | Test/debug videos (NEVER post these) | `test_rss_video.mp4`, `thought-Test_*.mp4`, `thought-Debug_*.mp4` |
+
+**When generating test videos:**
+```bash
+# CLI test command outputs to test folder
+swift run SocialEffects test-video  # → video/test/test_rss_video.mp4
+
+# Manual test videos should use test naming convention
+swift run SocialEffects generate-video --title "Test" --content "..."  # → video/test/
+```
+
+**Violation of this rule causes test content to be accidentally posted to social media platforms.**
+
 ## Key Patterns
 
 ### Video Generation Pipeline (generateVideoFromRSS)

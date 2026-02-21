@@ -6,6 +6,22 @@ Experimental app for generating professional-quality 15-30 second videos using M
 
 Create videos that "pop" with cinematic effects for Social Marketer integration.
 
+## ⚠️ CRITICAL RULE: Video File Organization
+
+**Test videos MUST be saved to `video/test/` - NEVER to `video/api/`**
+
+| Folder | Purpose | Risk |
+|--------|---------|------|
+| `video/api/` | Production videos for social media posting | ⚠️ Social Marketer auto-posts these |
+| `video/test/` | Test/debug videos | ✅ Safe for testing |
+
+**Why this matters:** Social Marketer scans `video/api/` and will automatically post any video it finds there. Test videos (with names like `thought-Test_*.mp4`) in this folder will be accidentally published.
+
+**Test command outputs to correct folder:**
+```bash
+swift run SocialEffects test-video  # → video/test/test_rss_video.mp4
+```
+
 ## Tech Stack
 
 - **Swift** - Main language

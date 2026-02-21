@@ -117,6 +117,22 @@ All API-generated videos are saved to:
 /Volumes/My Passport/social-media-content/social-effects/video/api/
 ```
 
+### ⚠️ CRITICAL: Test vs Production Videos
+
+**The `/video/api/` folder is for PRODUCTION content only.** Videos in this folder may be automatically picked up by Social Marketer for posting to social media platforms.
+
+| Folder | Purpose | Risk Level |
+|--------|---------|------------|
+| `video/api/` | Production videos for social media posting | ⚠️ Will be posted if found |
+| `video/test/` | Test/debug videos | ✅ Safe to delete/ignore |
+
+**If you need to generate test videos via API for debugging:**
+1. Temporarily modify the output path in the code, OR
+2. Move test videos to `video/test/` immediately after generation, OR
+3. Use the CLI `test-video` command instead (outputs to `video/test/` automatically)
+
+**Never commit test videos to `video/api/` - this can cause accidental social media posts.**
+
 ## Port Configuration
 
 **Default:** 5390

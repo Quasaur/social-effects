@@ -105,8 +105,12 @@ class TextGraphicsGenerator {
             let titleParagraph = NSMutableParagraphStyle()
             titleParagraph.alignment = .center
             
+            // Calculate title font size based on content font size (always larger)
+            let contentFontSize = calculateFontSize(for: text, width: textWidth)
+            let titleFontSize = contentFontSize * 1.25  // 25% larger than content text
+            
             let titleAttributes: [NSAttributedString.Key: Any] = [
-                .font: NSFont(name: "Georgia-Bold", size: 36) ?? NSFont.boldSystemFont(ofSize: 36),
+                .font: NSFont(name: "Georgia-Bold", size: titleFontSize) ?? NSFont.boldSystemFont(ofSize: titleFontSize),
                 .foregroundColor: StoicColors.offWhite.withAlphaComponent(0.85),
                 .paragraphStyle: titleParagraph
             ]

@@ -12,6 +12,8 @@
 ├── social-effects/          # Social Effects App (video rendering)
 │   ├── audio/              # Voice narrations from ElevenLabs (MP3)
 │   ├── video/              # Final rendered videos (MP4)
+│   │   ├── api/            # ⚠️ PRODUCTION VIDEOS ONLY - for social media posting
+│   │   └── test/           # ⚠️ TEST VIDEOS - never post these
 │   └── graphics/           # Pre-rendered text overlays (PNG)
 │
 └── social-marketer/         # Social Marketer App (content management)
@@ -20,6 +22,26 @@
     ├── passages/           # Exported Passages content
     ├── images/             # Generated graphics (for posts)
     └── videos/             # Final videos ready to post
+```
+
+### ⚠️ CRITICAL RULE: Video File Organization
+
+**TEST videos must NEVER be saved to `video/api/` - that folder is for production content only.**
+
+| Folder | Purpose | Naming Convention |
+|--------|---------|-------------------|
+| `video/api/` | Production videos ready for social media posting | `thought-{Title}-{timestamp}.mp4`, `passage-{Title}-{timestamp}.mp4` |
+| `video/test/` | Test/debug/development videos | `test_*.mp4`, `thought-Test_*.mp4`, `thought-Debug_*.mp4`, `thought-Api_Test-*.mp4` |
+
+**Why this matters:** Social Marketer scans `video/api/` for content to post. Test videos in that folder will be accidentally published.
+
+**Correct workflow:**
+```bash
+# Production video (goes to video/api/)
+swift run SocialEffects generate-video --title "Wisdom Title" --content "..."
+
+# Test video (explicitly use test naming or test command)
+swift run SocialEffects test-video  # automatically saves to video/test/
 ```
 
 ## Integration Points
