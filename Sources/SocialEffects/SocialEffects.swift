@@ -683,8 +683,8 @@ struct SocialEffectsCLI {
             if !outputJSON { print("🎥 Rendering video with FFmpeg...") }
             let durationSeconds = try await AVURLAsset(url: finalAudioPath).load(.duration).seconds
             
-            // Cinematic timing constants (narration starts at 9s)
-            let narrationStartTime = 9
+            // Cinematic timing: narration starts at 12s (3s black + 4s bg fade + 1s delay + 4s text fade)
+            let narrationStartTime = 12
             
             // Ensure minimum 15-second duration for TikTok and Instagram Reels compatibility
             // BUT also ensure video is long enough for delayed narration + outro to complete
@@ -730,18 +730,19 @@ struct SocialEffectsCLI {
             // Cinematic timing (ADJUSTED for text to be fully visible when voiceover starts):
             // 0-3s: Black screen with music
             // 3-7s: Background fades in (4s) - completes at 7s
-            // 3-7s: Text/border fades in (4s) - completes at 7s (SYNCED with background)
-            // 7s: Text fully visible
-            // 9s: Narration starts (2s buffer for visual settling)
+            // 7-8s: 1-second delay (background fully visible, text not yet showing)
+            // 8-12s: Text/border fades in (4s) - completes at 12s
+            // 12s: Text fully visible
+            // 12s: Narration starts (text is fully visible when voiceover begins)
             // After narration + 2s gap: CTA outro (handled by AudioMerger)
             
             let cinematicBlackDuration = 3
             let bgFadeStart = 3
             let bgFadeDuration = 4
-            // Text/border now fade in at SAME TIME as background (3-7s)
-            let textFadeStart = 3
+            // Text/border fade in starts 1s AFTER background fade completes
+            let textFadeStart = 8  // 7s (bg done) + 1s delay
             let textFadeDuration = 4
-            let narrationStart = 9
+            let narrationStart = 12  // When text fade completes
             
             if pingPongBackground {
                 // Ping-pong mode: forward-reverse-forward for seamless continuity
