@@ -95,6 +95,9 @@ class TextGraphicsGenerator {
         // Draw Border
         drawBorder(style: border, width: CGFloat(width), height: CGFloat(height))
         
+        // Calculate content text width for font sizing (used by both title and content)
+        let textWidth = CGFloat(width) * 0.60
+        
         // Draw title at top of frame
         if !title.isEmpty {
             let titleWidth = CGFloat(width) * 0.70
@@ -121,7 +124,6 @@ class TextGraphicsGenerator {
         }
         
         // Calculate text area (60% of width, centered)
-        let textWidth = CGFloat(width) * 0.60
         let textX = (CGFloat(width) - textWidth) / 2
         let textY = CGFloat(height) * 0.35 // Position from bottom
         let textHeight = CGFloat(height) * 0.40

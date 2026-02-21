@@ -183,7 +183,7 @@ public actor KokoroVoice {
     
     /// The call-to-action outro text
     /// Using "dot" instead of "." ensures TTS pronounces it correctly
-    public static let ctaText = "For more wisdom treasures, visit wisdom book dot life"
+    public static let ctaText = "for more wisdom treasure, video wisdom book dot life!"
     
     /// Generate CTA outro audio using Kokoro TTS
     /// - Returns: Path to generated CTA audio file

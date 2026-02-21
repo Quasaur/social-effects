@@ -683,14 +683,26 @@ struct SocialEffectsCLI {
             if !outputJSON { print("🎥 Rendering video with FFmpeg...") }
             let durationSeconds = try await AVURLAsset(url: finalAudioPath).load(.duration).seconds
             
-            // Ensure minimum 15-second duration for TikTok and Instagram Reels compatibility
-            let minDuration: Double = 15.0
-            let targetDuration = max(durationSeconds, minDuration)
-            let needsPadding = targetDuration > durationSeconds
+            // Cinematic timing constants (narration starts at 9s)
+            let narrationStartTime = 9
             
-            if needsPadding && !outputJSON {
-                let padding = targetDuration - durationSeconds
-                print("⏱️ Audio: \(String(format: "%.1f", durationSeconds))s — padding \(String(format: "%.1f", padding))s to reach 15s minimum")
+            // Ensure minimum 15-second duration for TikTok and Instagram Reels compatibility
+            // BUT also ensure video is long enough for delayed narration + outro to complete
+            let minDuration: Double = 15.0
+            let audioEndTime = Double(narrationStartTime) + durationSeconds  // When audio actually ends (after delay)
+            let targetDuration = max(minDuration, audioEndTime)
+            let needsPadding = targetDuration > audioEndTime  // Only pad if audio ends before minDuration
+            
+            if !outputJSON {
+                if targetDuration > minDuration {
+                    print("⏱️ Audio ends at \(String(format: "%.1f", audioEndTime))s (includes \(narrationStartTime)s delay)")
+                }
+                if needsPadding {
+                    let padding = targetDuration - audioEndTime
+                    print("⏱️ Padding \(String(format: "%.1f", padding))s to reach 15s minimum")
+                } else {
+                    print("⏱️ Audio duration: \(String(format: "%.1f", durationSeconds))s, final video: \(String(format: "%.1f", targetDuration))s")
+                }
             }
             
             try FileManager.default.createDirectory(at: finalVideoPath.deletingLastPathComponent(), withIntermediateDirectories: true)
@@ -873,12 +885,14 @@ struct SocialEffectsCLI {
                 throw NSError(domain: "SocialEffects", code: 2, userInfo: [NSLocalizedDescriptionKey: "FFmpeg failed: \(output)"])
             }
             
-            // 6. Output
+            // 6. Output - Get actual video duration
+            let finalVideoDuration = try await AVURLAsset(url: finalVideoPath).load(.duration).seconds
+            
             if outputJSON {
                 let result: [String: Any] = [
                     "success": true,
                     "videoPath": finalVideoPath.path,
-                    "duration": targetDuration,
+                    "duration": finalVideoDuration,
                     "background": backgroundPath.lastPathComponent
                 ]
                 let jsonData = try JSONSerialization.data(withJSONObject: result, options: [])
@@ -887,7 +901,9 @@ struct SocialEffectsCLI {
                 print("\n✅ Video Generated Successfully!")
                 print("📂 Saved to: \(finalVideoPath.path)")
                 if needsPadding {
-                    print("⏱️ Final duration: \(String(format: "%.1f", targetDuration))s (padded from \(String(format: "%.1f", durationSeconds))s)")
+                    print("⏱️ Final duration: \(String(format: "%.1f", finalVideoDuration))s (padded from \(String(format: "%.1f", durationSeconds))s to meet 15s minimum)")
+                } else {
+                    print("⏱️ Duration: \(String(format: "%.1f", finalVideoDuration))s")
                 }
             }
             
