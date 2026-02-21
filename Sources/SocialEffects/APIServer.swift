@@ -110,7 +110,7 @@ class APIServer {
                     let content = json["content"] as? String ?? ""
                     let contentType = json["content_type"] as? String ?? ""
                     let nodeTitle = json["node_title"] as? String ?? ""
-                    let usePingPong = json["ping_pong"] as? Bool ?? false
+                    let usePingPong = json["ping_pong"] as? Bool ?? true  // Default to ping-pong for seamless looping
                     
                     // Validate required fields
                     if title.isEmpty || content.isEmpty {

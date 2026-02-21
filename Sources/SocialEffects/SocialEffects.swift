@@ -494,7 +494,7 @@ struct SocialEffectsCLI {
         var borderArg = "gold"
         var outputJSON = false
         var outputPathArg: String? = nil
-        var pingPongBackground = false
+        var pingPongBackground = true  // Default to ping-pong for seamless background looping
         var contentTypeArg: String? = nil
         var nodeTitleArg: String? = nil
         
@@ -729,16 +729,18 @@ struct SocialEffectsCLI {
             
             // Cinematic timing (ADJUSTED for text to be fully visible when voiceover starts):
             // 0-3s: Black screen with music
-            // 3-7s: Background fades in (4s)
-            // 7-9s: Text overlay fades in (2s) - COMPLETED by 9s
-            // 9s: Narration starts (text is fully visible)
+            // 3-7s: Background fades in (4s) - completes at 7s
+            // 3-7s: Text/border fades in (4s) - completes at 7s (SYNCED with background)
+            // 7s: Text fully visible
+            // 9s: Narration starts (2s buffer for visual settling)
             // After narration + 2s gap: CTA outro (handled by AudioMerger)
             
             let cinematicBlackDuration = 3
             let bgFadeStart = 3
             let bgFadeDuration = 4
-            let textFadeStart = 7
-            let textFadeDuration = 2
+            // Text/border now fade in at SAME TIME as background (3-7s)
+            let textFadeStart = 3
+            let textFadeDuration = 4
             let narrationStart = 9
             
             if pingPongBackground {
