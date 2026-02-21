@@ -599,27 +599,34 @@ struct SocialEffectsCLI {
                 let slotIndex = (timestamp % 10) + 1
                 let slotStr = String(format: "%02d", slotIndex)
                 
-                let bgDir = "output/backgrounds"
-                let files = (try? FileManager.default.contentsOfDirectory(atPath: bgDir)) ?? []
+                // PRIORITY: Check external drive first (has real background videos)
+                let extBgDir = "/Volumes/My Passport/social-media-content/social-effects/output/backgrounds"
+                let localBgDir = "output/backgrounds"
                 
-                if let match = files.first(where: { $0.hasPrefix(slotStr) && $0.hasSuffix(".mp4") && !$0.contains("landscape") && !$0.contains("original") }) {
-                    backgroundPath = URL(fileURLWithPath: "\(bgDir)/\(match)")
+                let extFiles = (try? FileManager.default.contentsOfDirectory(atPath: extBgDir)) ?? []
+                let localFiles = (try? FileManager.default.contentsOfDirectory(atPath: localBgDir)) ?? []
+                
+                // Try external drive first for the specific slot
+                if let match = extFiles.first(where: { $0.hasPrefix(slotStr) && $0.hasSuffix(".mp4") && !$0.contains("landscape") && !$0.contains("original") }) {
+                    backgroundPath = URL(fileURLWithPath: "\(extBgDir)/\(match)")
                     if !outputJSON { print("🎨 Background: \(match) (Slot \(slotStr))") }
+                } 
+                // Fall back to local for the specific slot
+                else if let match = localFiles.first(where: { $0.hasPrefix(slotStr) && $0.hasSuffix(".mp4") && !$0.contains("landscape") && !$0.contains("original") }) {
+                    backgroundPath = URL(fileURLWithPath: "\(localBgDir)/\(match)")
+                    if !outputJSON { print("🎨 Background (Local): \(match) (Slot \(slotStr))") }
+                }
+                // Fall back to any external video
+                else if let firstExt = extFiles.first(where: { $0.hasSuffix(".mp4") && !$0.contains("landscape") && !$0.contains("original") }) {
+                    backgroundPath = URL(fileURLWithPath: "\(extBgDir)/\(firstExt)")
+                    if !outputJSON { print("⚠️ Slot \(slotStr) not found, falling back to external \(firstExt)") }
+                }
+                // Last resort: any local video
+                else if let firstLocal = localFiles.first(where: { $0.hasSuffix(".mp4") && !$0.contains("landscape") && !$0.contains("original") }) {
+                    backgroundPath = URL(fileURLWithPath: "\(localBgDir)/\(firstLocal)")
+                    if !outputJSON { print("⚠️ Slot \(slotStr) not found, falling back to local \(firstLocal)") }
                 } else {
-                    let extBgDir = "/Volumes/My Passport/social-media-content/social-effects/output/backgrounds"
-                    let extFiles = (try? FileManager.default.contentsOfDirectory(atPath: extBgDir)) ?? []
-                     if let match = extFiles.first(where: { $0.hasPrefix(slotStr) && $0.hasSuffix(".mp4") && !$0.contains("landscape") && !$0.contains("original") }) {
-                        backgroundPath = URL(fileURLWithPath: "\(extBgDir)/\(match)")
-                        if !outputJSON { print("🎨 Background (External): \(match)") }
-                    } else if let firstMatch = files.first(where: { $0.hasSuffix(".mp4") && !$0.contains("landscape") && !$0.contains("original") }) {
-                        backgroundPath = URL(fileURLWithPath: "\(bgDir)/\(firstMatch)")
-                        if !outputJSON { print("⚠️ Slot \(slotStr) not found, falling back to \(firstMatch)") }
-                    } else if let firstExt = extFiles.first(where: { $0.hasSuffix(".mp4") && !$0.contains("landscape") && !$0.contains("original") }) {
-                        backgroundPath = URL(fileURLWithPath: "\(extBgDir)/\(firstExt)")
-                        if !outputJSON { print("⚠️ Slot \(slotStr) not found, falling back to external \(firstExt)") }
-                    } else {
-                        throw NSError(domain: "SocialEffects", code: 1, userInfo: [NSLocalizedDescriptionKey: "No background videos found"])
-                    }
+                    throw NSError(domain: "SocialEffects", code: 1, userInfo: [NSLocalizedDescriptionKey: "No background videos found"])
                 }
             } else {
                 backgroundPath = URL(fileURLWithPath: backgroundArg)
