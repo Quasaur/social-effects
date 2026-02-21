@@ -92,8 +92,15 @@ class APIServer {
     }
     
     private func handleGenerate(request: String, connection: NWConnection) {
+        // Debug: Log the full request
+        print("📥 Received generate request:")
+        print(request)
+        
         if let bodyStart = request.range(of: "\r\n\r\n") {
             let body = String(request[bodyStart.upperBound...])
+            
+            // Debug: Log the body
+            print("📄 Request body: \(body)")
             
             do {
                 if let data = body.data(using: .utf8),
