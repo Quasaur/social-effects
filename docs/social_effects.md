@@ -189,6 +189,20 @@ Social Effects will intelligently choose rendering engine:
     └── (temporary rendering files)
 ```
 
+## Code Organization
+
+### Path Management
+All storage paths are centralized in `Utils/Paths.swift`:
+```swift
+// Base paths
+Paths.sharedDrivePath        // /Volumes/My Passport/...
+Paths.localOutputPath        // output/
+
+// Derived paths with fallback helpers
+Paths.audioCacheDirectory()   // Returns external or local based on availability
+Paths.videoOutputDirectory()  // Returns external or local based on availability
+```
+
 ## Error Handling
 
 If Social Effects fails to generate video:

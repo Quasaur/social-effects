@@ -99,10 +99,29 @@ Sources/SocialEffects/
 │   ├── AudioMerger.swift         # Audio mixing
 │   └── RSASigner.swift           # JWT signing for Google APIs
 ├── Graphics/
-│   ├── TextGraphicsGenerator.swift  # Text overlay rendering
-│   └── BorderStyles.swift        # Border style implementations
-├── Rendering/
-│   └── VideoRenderer.swift       # Legacy AVAssetWriter renderer
+│   ├── TextGraphicsGenerator.swift    # Text overlay rendering
+│   ├── BorderStyles.swift             # Border style dispatcher
+│   └── BorderDrawingHelpers.swift     # Shared border drawing utilities
+├── Borders/                      # Individual border implementations
+│   ├── ArtDecoBorder.swift
+│   ├── ClassicScrollBorder.swift
+│   ├── ClassicScrollDetails.swift
+│   ├── GoldenVineBorder.swift
+│   ├── GoldenVineDetails.swift
+│   └── [Other border styles...]
+├── Commands/                     # CLI command handlers
+│   ├── BackgroundCommands.swift
+│   ├── HelpCommand.swift
+│   ├── PikaCommands.swift
+│   ├── TestVideoCommand.swift
+│   ├── VideoGenerationCommand.swift
+│   └── VideoRenderer.swift
+├── Utils/                        # Shared utilities
+│   ├── Paths.swift               # Centralized path constants
+│   ├── Hashing.swift             # SHA256 hashing utilities
+│   ├── BorderSelector.swift      # Daily border rotation
+│   ├── BackgroundSelector.swift  # Background video selection
+│   └── FFmpegRenderer.swift      # FFmpeg composition + VideoTiming
 └── Demos/
     └── ThoughtContent.swift      # Demo content data
 
@@ -145,14 +164,27 @@ Dynamic filter chain building based on available assets:
 - Audio delay and mixing
 
 ### TTS Caching Strategy
-- SHA256 hash of content text = cache key
+- SHA256 hash of content text = cache key (via `Hashing.sha256()`)
 - Cache cleared at start of each video generation
 - WAV format preserved for FFmpeg compatibility
+- Centralized hashing utility in `Utils/Hashing.swift`
 
 ### Border Rotation
 ```swift
-let dayOfYear = Calendar.current.ordinality(of: .day, in: .year, for: Date()) ?? 1
-let borderStyle = approvedBorders[(dayOfYear - 1) % approvedBorders.count]
+let borderStyle = BorderSelector.dailyBorder()
+```
+
+### Video Timing Constants
+Production timing values centralized in `Utils/FFmpegRenderer.swift`:
+```swift
+enum VideoTiming {
+    static let bgFadeStart = 3        // Background fade in starts
+    static let bgFadeDuration = 4     // Background fade duration
+    static let textFadeStart = 8      // Text overlay fade starts
+    static let textFadeDuration = 4   // Text overlay fade duration
+    static let narrationStart = 12    // Audio narration starts
+    static let minDuration: Double = 15.0
+}
 ```
 
 ## Constraints & Limitations

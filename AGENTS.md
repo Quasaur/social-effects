@@ -83,6 +83,13 @@ Apple's Jamie Premium voice is preferred for TTS and must be installed via Syste
 - `DotEnv.swift` - Loads `.env` file into environment
 - `Demos/ThoughtContent.swift` - Demo content data
 
+### Utilities (`Utils/`)
+- `Paths.swift` - Centralized path constants and helpers (external drive, local fallback)
+- `Hashing.swift` - SHA256 hashing utilities (shared across TTS caching)
+- `BorderSelector.swift` - Daily border rotation logic
+- `BackgroundSelector.swift` - Auto-rotation background video selection
+- `FFmpegRenderer.swift` - FFmpeg video composition with `VideoTiming` constants
+
 ## External Dependencies
 
 - **FFmpeg** - Required at `/opt/homebrew/bin/ffmpeg` or `/usr/local/bin/ffmpeg` for video encoding
@@ -153,9 +160,20 @@ Duration: 23.6s | Background: 04_neon_tunnel_flight.mp4 | Border: classic-scroll
 ### Border Style Rotation
 Ornate borders rotate daily via day-of-year calculation:
 ```swift
-let dayOfYear = Calendar.current.ordinality(of: .day, in: .year, for: Date()) ?? 1
-let borderStyle = approvedBorders[(dayOfYear - 1) % approvedBorders.count]
+let borderStyle = BorderSelector.dailyBorder()
+```
+
+### Video Timing Constants
+Standard production timing is defined in `VideoTiming` enum (FFmpegRenderer.swift):
+```swift
+VideoTiming.bgFadeStart      // 3 seconds
+VideoTiming.bgFadeDuration   // 4 seconds
+VideoTiming.textFadeStart    // 8 seconds
+VideoTiming.textFadeDuration // 4 seconds
+VideoTiming.narrationStart   // 12 seconds
+VideoTiming.minDuration      // 15.0 seconds
 ```
 
 ### Voice Caching
 TTS output is cached by SHA256 hash of content text to avoid regenerating identical audio.
+Uses centralized `Hashing.sha256()` utility from `Utils/Hashing.swift`.

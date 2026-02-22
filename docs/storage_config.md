@@ -57,19 +57,34 @@ swift run SocialEffects test-video  # automatically saves to video/test/
 7. **Saves video** to `/Volumes/My Passport/social-media-content/social-effects/video/`
 8. **Social Marketer reads** final video for posting
 
-### Configuration Updates Needed
+### Path Configuration
 
-**social-effects/Sources/.../ElevenLabsVoice.swift:**
+**social-effects uses centralized path management in `Utils/Paths.swift`:**
 
 ```swift
-let audioDir = URL(fileURLWithPath: "/Volumes/My Passport/social-media-content/social-effects/audio")
+// Base paths
+Paths.sharedDrivePath           // /Volumes/My Passport/social-media-content/social-effects
+Paths.localOutputPath           // output/
+
+// Audio cache with automatic fallback
+let audioCacheDir = Paths.audioCacheDirectory()
+
+// Video output with automatic fallback
+let videoOutputDir = Paths.videoOutputDirectory()
+
+// Specific path constants
+Paths.externalAudioCachePath    // .../social-effects/audio/cache
+Paths.localAudioCachePath       // output/cache/audio
+Paths.externalVideoPath         // .../social-effects/video
+Paths.localVideoPath            // output/rss_videos
+Paths.testVideoPath             // .../social-effects/video/test/test_rss_video.mp4
 ```
 
-**social-marketer (future integration):**
+**For other integrations:**
 
 ```swift
-let exportPath = "/Volumes/My Passport/social-media-content/social-marketer/thoughts/"
-let finalVideosPath = "/Volumes/My Passport/social-media-content/social-effects/video/"
+let exportPath = "\(Paths.sharedDrivePath)/social-marketer/thoughts/"
+let finalVideosPath = Paths.externalVideoPath
 ```
 
 ## Benefits
@@ -92,9 +107,18 @@ let finalVideosPath = "/Volumes/My Passport/social-media-content/social-effects/
 
 ## Fallback Strategy
 
-If My Passport is not mounted, apps fall back to local storage:
+If My Passport is not mounted, apps automatically fall back to local storage:
 
-- **social-effects:** `~/Developer/social-effects/output/`
+- **social-effects:** `output/` (local to project directory)
 - **social-marketer:** `~/Developer/social-marketer/exports/`
 
-Apps should check mount status on startup and log warnings if external drive unavailable.
+The `Paths` utility automatically handles this fallback:
+
+```swift
+// Returns external path if available, local otherwise
+let cacheDir = Paths.audioCacheDirectory()
+let videoDir = Paths.videoOutputDirectory()
+
+// Check external drive availability
+let isExternalAvailable = FileManager.default.isWritableFile(atPath: Paths.sharedDrivePath)
+```

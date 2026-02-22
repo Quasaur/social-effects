@@ -22,13 +22,22 @@ Social Effects uses a modular service-oriented architecture with clear separatio
 │GeminiVeo │      │Text      │      │KokoroTTS │
 │Pika/Fal  │      │Graphics  │      │AudioMerge│
 │          │      │Generator │      │          │
-└──────────┘      └──────────┘      └──────────┘
-                        │
-                        ▼
-                ┌──────────────┐
-                │   FFmpeg     │
-                │  Composition │
-                └──────────────┘
+└──────────┘      └────┬─────┘      └────┬─────┘
+                       │                 │
+                       ▼                 ▼
+              ┌─────────────────────────────────┐
+              │           Utils                 │
+              │  ┌─────────┐    ┌────────────┐  │
+              │  │ Paths   │    │  Hashing   │  │
+              │  │BorderSel│    │  FFmpeg    │  │
+              │  └─────────┘    └────────────┘  │
+              └─────────────────────────────────┘
+                       │
+                       ▼
+               ┌──────────────┐
+               │   FFmpeg     │
+               │  Composition │
+               └──────────────┘
 ```
 
 ## Key Design Patterns
@@ -112,10 +121,13 @@ Content → Graphic Generation → TTS Generation → Audio Merge → FFmpeg Com
 
 ### Dependencies
 - `SocialEffectsCLI` → `GeminiVideoService`, `PikaVideoService`
-- `SocialEffectsCLI` → `TextGraphicsGenerator`
+- `SocialEffectsCLI` → `TextGraphicsGenerator`, `BorderStyles`
 - `SocialEffectsCLI` → `KokoroVoice`, `AudioMerger`
+- `SocialEffectsCLI` → `Paths`, `Hashing`, `BorderSelector`, `BackgroundSelector`
 - `AudioMerger` → `AVFoundation`
 - `TextGraphicsGenerator` → `CoreGraphics`
+- `KokoroVoice` → `Hashing` (for cache keys)
+- `FFmpegRenderer` → `Paths` (for background music path)
 
 ### Data Flow
 1. RSS content parsed → `FeedItem` struct
