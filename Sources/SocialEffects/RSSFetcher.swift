@@ -1,14 +1,18 @@
 import Foundation
 
 /// Minimal RSS feed parser for wisdombook.life feeds.
-/// Extracts title, content (description), and link from <item> elements.
+/// Extracts title, content (description), link, source, and content type from <item> elements.
 struct RSSFetcher {
     
     struct FeedItem: Codable {
         let title: String
         let content: String
         let link: String
+        /// For PASSAGE items: Book/Chapter/Verse (e.g., "Proverbs 3:34")
+        /// For THOUGHT items: "wisdombook.life"
         let source: String
+        /// Content type: "passage", "thought", "quote", etc.
+        let contentType: String
     }
     
     static let feedURLs: [String: String] = [
@@ -49,24 +53,77 @@ struct RSSFetcher {
         return item
     }
     
-    /// Simple XML extraction — pulls first <item>'s title, description, and link
+    /// Simple XML extraction — pulls first <item>'s title, description, link, source, and type
     private static func parseFirstItem(from xml: String) -> FeedItem? {
         guard let itemStart = xml.range(of: "<item>"),
               let itemEnd = xml.range(of: "</item>") else { return nil }
         
         let itemXML = String(xml[itemStart.upperBound..<itemEnd.lowerBound])
         
-        let title = extractTag("title", from: itemXML)?
-            .replacingOccurrences(of: "Today's Wisdom: ", with: "") ?? "Untitled"
+        // Extract basic fields - use title exactly as provided in RSS (no prefix stripping)
+        let title = extractTag("title", from: itemXML) ?? "Untitled"
         let content = extractTag("description", from: itemXML) ?? ""
         let link = extractTag("link", from: itemXML) ?? "https://wisdombook.life"
+        
+        // Extract content type from category tags (look for "Passage", "Thought", "Quote")
+        let contentType = extractContentType(from: itemXML)
+        
+        // Extract source: for PASSAGE items use wisdom:source tag (Book/Chapter/Verse)
+        // For other types, default to wisdombook.life
+        let source: String
+        if contentType == "passage" {
+            source = extractWisdomSource(from: itemXML) ?? "wisdombook.life"
+        } else {
+            source = "wisdombook.life"
+        }
         
         return FeedItem(
             title: title,
             content: content,
             link: link,
-            source: "wisdombook.life"
+            source: source,
+            contentType: contentType
         )
+    }
+    
+    /// Extract content type from category tags (passage, thought, quote, etc.)
+    private static func extractContentType(from xml: String) -> String {
+        // Look for category tags and find the content type
+        var searchRange = xml.startIndex..<xml.endIndex
+        while let categoryStart = xml.range(of: "<category>", range: searchRange) {
+            guard let categoryEnd = xml.range(of: "</category>", range: categoryStart.upperBound..<xml.endIndex) else { break }
+            
+            let categoryValue = String(xml[categoryStart.upperBound..<categoryEnd.lowerBound])
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            
+            let lowerValue = categoryValue.lowercased()
+            if ["passage", "thought", "quote", "scripture"].contains(lowerValue) {
+                return lowerValue
+            }
+            
+            searchRange = categoryEnd.upperBound..<xml.endIndex
+        }
+        return "thought" // Default to thought if no specific type found
+    }
+    
+    /// Extract wisdom:source tag (Book/Chapter/Verse for scripture passages)
+    private static func extractWisdomSource(from xml: String) -> String? {
+        // Try wisdom:source namespace tag (e.g., <wisdom:source>Proverbs 3:34</wisdom:source>)
+        let patterns = [
+            "<wisdom:source>",
+            "<source>"
+        ]
+        
+        for pattern in patterns {
+            if let start = xml.range(of: pattern),
+               let endPattern = pattern == "<wisdom:source>" ? "</wisdom:source>" : "</source>",
+               let end = xml.range(of: endPattern, range: start.upperBound..<xml.endIndex) {
+                let source = String(xml[start.upperBound..<end.lowerBound])
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                return source.isEmpty ? nil : source
+            }
+        }
+        return nil
     }
     
     /// Extract text content between <tag> and </tag>

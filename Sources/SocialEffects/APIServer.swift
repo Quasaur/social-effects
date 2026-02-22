@@ -47,20 +47,80 @@ class APIServer {
     private func handleConnection(_ connection: NWConnection) {
         connection.start(queue: .global())
         
-        connection.receive(minimumIncompleteLength: 1, maximumLength: 65536) { [weak self] data, _, isComplete, error in
-            guard let self = self, let data = data else {
-                connection.cancel()
-                return
-            }
-            
-            if let request = String(data: data, encoding: .utf8) {
-                self.handleRequest(request, connection: connection)
-            }
-            
-            if !isComplete {
-                self.handleConnection(connection)
+        // Accumulate request data until we have a complete HTTP request
+        var requestData = Data()
+        var headersParsed = false
+        var contentLength = 0
+        var headerEndIndex: Data.Index?
+        
+        func receiveNextChunk() {
+            connection.receive(minimumIncompleteLength: 1, maximumLength: 65536) { [weak self] data, _, isComplete, error in
+                guard let self = self else {
+                    connection.cancel()
+                    return
+                }
+                
+                if let error = error {
+                    print("❌ Connection error: \(error)")
+                    connection.cancel()
+                    return
+                }
+                
+                if let data = data {
+                    requestData.append(data)
+                    
+                    // Try to parse headers if we haven't yet
+                    if !headersParsed {
+                        if let headerEnd = requestData.range(of: Data("\r\n\r\n".utf8)) {
+                            headersParsed = true
+                            headerEndIndex = headerEnd.upperBound
+                            
+                            // Parse Content-Length
+                            if let headers = String(data: requestData[..<headerEnd.upperBound], encoding: .utf8) {
+                                contentLength = self.parseContentLength(from: headers)
+                            }
+                        }
+                    }
+                    
+                    // Check if we have the complete request
+                    if headersParsed, let headerEnd = headerEndIndex {
+                        let totalExpected = headerEnd + contentLength
+                        if requestData.count >= totalExpected {
+                            // We have the complete request
+                            if let request = String(data: requestData, encoding: .utf8) {
+                                self.handleRequest(request, connection: connection)
+                            }
+                            return
+                        }
+                    }
+                }
+                
+                // Need more data or connection closed
+                if isComplete {
+                    // Try to handle what we have
+                    if let request = String(data: requestData, encoding: .utf8) {
+                        self.handleRequest(request, connection: connection)
+                    } else {
+                        connection.cancel()
+                    }
+                } else {
+                    receiveNextChunk()
+                }
             }
         }
+        
+        receiveNextChunk()
+    }
+    
+    private func parseContentLength(from headers: String) -> Int {
+        let lines = headers.components(separatedBy: "\r\n")
+        for line in lines {
+            if line.lowercased().hasPrefix("content-length:") {
+                let value = line.dropFirst("content-length:".count).trimmingCharacters(in: .whitespaces)
+                return Int(value) ?? 0
+            }
+        }
+        return 0
     }
     
     private func handleRequest(_ request: String, connection: NWConnection) {
@@ -92,67 +152,82 @@ class APIServer {
     }
     
     private func handleGenerate(request: String, connection: NWConnection) {
-        // Debug: Log the full request
-        print("📥 Received generate request:")
-        print(request)
-        
-        if let bodyStart = request.range(of: "\r\n\r\n") {
-            let body = String(request[bodyStart.upperBound...])
-            
-            // Debug: Log the body
-            print("📄 Request body: \(body)")
-            
-            do {
-                if let data = body.data(using: .utf8),
-                   let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                    
-                    let title = json["title"] as? String ?? ""
-                    let content = json["content"] as? String ?? ""
-                    let contentType = json["content_type"] as? String ?? ""
-                    let nodeTitle = json["node_title"] as? String ?? ""
-                    let usePingPong = json["ping_pong"] as? Bool ?? true  // Default to ping-pong for seamless looping
-                    
-                    // Validate required fields
-                    if title.isEmpty || content.isEmpty {
-                        sendResponse(connection, status: 400, body: "{\"error\":\"Missing title or content\"}", contentType: "application/json")
-                        return
-                    }
-                    
-                    if contentType.isEmpty {
-                        sendResponse(connection, status: 400, body: "{\"error\":\"Missing content_type\"}", contentType: "application/json")
-                        return
-                    }
-                    
-                    if nodeTitle.isEmpty {
-                        sendResponse(connection, status: 400, body: "{\"error\":\"Missing node_title\"}", contentType: "application/json")
-                        return
-                    }
-                    
-                    Task {
-                        do {
-                            let outputPath = try await generateVideo(
-                                title: title,
-                                content: content,
-                                contentType: contentType,
-                                nodeTitle: nodeTitle,
-                                usePingPong: usePingPong
-                            )
-                            let response = "{\"success\":true,\"video_path\":\"\(outputPath)\"}"
-                            self.sendResponse(connection, status: 200, body: response, contentType: "application/json")
-                        } catch {
-                            let response = "{\"success\":false,\"error\":\"\(error.localizedDescription)\"}"
-                            self.sendResponse(connection, status: 500, body: response, contentType: "application/json")
-                        }
-                    }
-                    return
-                }
-            } catch {
-                sendResponse(connection, status: 400, body: "{\"error\":\"Invalid JSON\"}", contentType: "application/json")
-                return
-            }
+        // Extract body after \r\n\r\n
+        guard let bodyStart = request.range(of: "\r\n\r\n") else {
+            sendResponse(connection, status: 400, body: "{\"error\":\"Missing body\"}", contentType: "application/json")
+            return
         }
         
-        sendResponse(connection, status: 400, body: "{\"error\":\"Missing body\"}", contentType: "application/json")
+        let body = String(request[bodyStart.upperBound...])
+        
+        // Debug: Log the body
+        print("📄 Request body (\(body.utf8.count) bytes): \(body.prefix(200))...")
+        
+        guard !body.isEmpty else {
+            sendResponse(connection, status: 400, body: "{\"error\":\"Empty body\"}", contentType: "application/json")
+            return
+        }
+        
+        guard let data = body.data(using: .utf8) else {
+            sendResponse(connection, status: 400, body: "{\"error\":\"Invalid UTF-8 encoding\"}", contentType: "application/json")
+            return
+        }
+        
+        do {
+            guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                sendResponse(connection, status: 400, body: "{\"error\":\"JSON is not a dictionary\"}", contentType: "application/json")
+                return
+            }
+            
+            let title = json["title"] as? String ?? ""
+            let content = json["content"] as? String ?? ""
+            let contentType = json["content_type"] as? String ?? ""
+            let nodeTitle = json["node_title"] as? String ?? ""
+            let usePingPong = json["ping_pong"] as? Bool ?? true
+            
+            // Validate required fields
+            if title.isEmpty {
+                sendResponse(connection, status: 400, body: "{\"error\":\"Missing title\"}", contentType: "application/json")
+                return
+            }
+            
+            if content.isEmpty {
+                sendResponse(connection, status: 400, body: "{\"error\":\"Missing content\"}", contentType: "application/json")
+                return
+            }
+            
+            if contentType.isEmpty {
+                sendResponse(connection, status: 400, body: "{\"error\":\"Missing content_type\"}", contentType: "application/json")
+                return
+            }
+            
+            if nodeTitle.isEmpty {
+                sendResponse(connection, status: 400, body: "{\"error\":\"Missing node_title\"}", contentType: "application/json")
+                return
+            }
+            
+            print("🎬 Generating video: '\(title)' (\(contentType))")
+            
+            Task {
+                do {
+                    let outputPath = try await generateVideo(
+                        title: title,
+                        content: content,
+                        contentType: contentType,
+                        nodeTitle: nodeTitle,
+                        usePingPong: usePingPong
+                    )
+                    let response = "{\"success\":true,\"video_path\":\"\(outputPath)\"}"
+                    self.sendResponse(connection, status: 200, body: response, contentType: "application/json")
+                } catch {
+                    let response = "{\"success\":false,\"error\":\"\(error.localizedDescription)\"}"
+                    self.sendResponse(connection, status: 500, body: response, contentType: "application/json")
+                }
+            }
+        } catch {
+            print("❌ JSON parsing error: \(error)")
+            sendResponse(connection, status: 400, body: "{\"error\":\"Invalid JSON: \(error.localizedDescription)\"}", contentType: "application/json")
+        }
     }
     
     private func handleShutdown(connection: NWConnection) {
@@ -165,6 +240,7 @@ class APIServer {
         var response = "HTTP/1.1 \(status) \(statusText)\r\n"
         response += "Content-Type: \(contentType)\r\n"
         response += "Content-Length: \(body.utf8.count)\r\n"
+        response += "Connection: close\r\n"
         response += "\r\n"
         response += body
         
@@ -213,15 +289,40 @@ class APIServer {
         process.standardError = errPipe
         
         // Log the command for debugging
+        print("🚀 Starting video generation: \(title)")
+        print("   Command: \(binaryPath) \(args.joined(separator: " "))")
+        
         try process.run()
-        process.waitUntilExit()
+        
+        // Wait with timeout (8 minutes max for video generation)
+        let timeout: TimeInterval = 480 // 8 minutes
+        let startTime = Date()
+        
+        while process.isRunning {
+            if Date().timeIntervalSince(startTime) > timeout {
+                process.terminate()
+                print("❌ Video generation timed out after \(timeout) seconds")
+                throw NSError(domain: "APIServer", code: 1, userInfo: [NSLocalizedDescriptionKey: "Video generation timed out after \(timeout) seconds"])
+            }
+            // Check every 0.5 seconds
+            try await Task.sleep(nanoseconds: 500_000_000)
+            print("⏳ Video generation in progress... (\(String(format: "%.0f", Date().timeIntervalSince(startTime)))s)")
+        }
+        
+        print("✅ Video generation process completed in \(String(format: "%.1f", Date().timeIntervalSince(startTime)))s")
         
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
         let errData = errPipe.fileHandleForReading.readDataToEndOfFile()
         
-        // Log stderr for debugging if there's an error
+        // Log stderr for debugging
+        let errOutput = String(data: errData, encoding: .utf8) ?? ""
+        if !errOutput.isEmpty {
+            print("📝 stderr: \(errOutput)")
+        }
+        
+        // Check exit status
         if process.terminationStatus != 0 {
-            let errOutput = String(data: errData, encoding: .utf8) ?? "Unknown error"
+            print("❌ Video generation process failed with exit code \(process.terminationStatus)")
             throw NSError(domain: "APIServer", code: Int(process.terminationStatus), userInfo: [NSLocalizedDescriptionKey: "Video generation failed: \(errOutput)"])
         }
         
@@ -235,6 +336,8 @@ class APIServer {
               let jsonData = jsonLine.data(using: .utf8),
               let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any],
               let success = json["success"] as? Bool else {
+            print("❌ Could not parse video generation response")
+            print("   Output: \(outputStr.prefix(500))")
             throw NSError(domain: "APIServer", code: 1, userInfo: [NSLocalizedDescriptionKey: "Video generation failed - invalid response"])
         }
         

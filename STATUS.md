@@ -72,13 +72,22 @@ YouTube Upload via YouTube Data API
 
 ```json
 {
-  "title": "Today's Wisdom: TITLE",
+  "title": "TITLE",
   "content": "Quote or thought text here...",
   "content_type": "thought",
   "node_title": "Title_For_Filename",
+  "source": "wisdombook.life",
   "ping_pong": false
 }
 ```
+
+**Field descriptions:**
+- `title` - Display title (shown on video, e.g., "HEART OF THE KING")
+- `content` - The quote/passage/thought text
+- `content_type` - `"passage"`, `"thought"`, or `"quote"`
+- `node_title` - Used for filename generation (sanitized to Initial_Caps_With_Underscores)
+- `source` - For **passages**: Book/Chapter/Verse (e.g., "Proverbs 21:1"); for **thoughts/quotes**: "wisdombook.life"
+- `ping_pong` - Whether to use ping-pong background looping
 
 ## Key Commands
 
