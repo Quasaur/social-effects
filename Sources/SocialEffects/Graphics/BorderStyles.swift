@@ -8,7 +8,8 @@ import AppKit
 extension TextGraphicsGenerator {
     
     /// Gold color used across all ornate borders — RGB(212, 175, 55) / #D4AF37
-    static let goldColor = NSColor(red: 212/255.0, green: 175/255.0, blue: 55/255.0, alpha: 1.0)
+    /// Reference: BorderDrawingHelpers.borderGoldColor for standalone functions
+    static let goldColor = borderGoldColor
     
     /// Dispatches to the appropriate ornate border drawing method
     func drawOrnateBorder(style: BorderStyle, width w: CGFloat, height h: CGFloat) {

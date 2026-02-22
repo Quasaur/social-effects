@@ -1,5 +1,4 @@
 import Foundation
-import CryptoKit
 
 /// Kokoro 82M TTS Service
 /// Locally-installed neural TTS with high-quality voices
@@ -16,9 +15,9 @@ public actor KokoroVoice {
     private let kokoroScript: String
     
     /// External drive base path (primary storage)
-    private static let externalDrivePath = "/Volumes/My Passport/social-media-content/social-effects"
+    private static let externalDrivePath = Paths.sharedDrivePath
     /// Local fallback path
-    private static let localFallbackPath = "output"
+    private static let localFallbackPath = Paths.localOutputPath
     
     /// Available American male voices (matching ElevenLabs Donovan profile)
     public static let americanMaleVoices = [
@@ -38,22 +37,9 @@ public actor KokoroVoice {
         let homeDir = FileManager.default.homeDirectoryForCurrentUser
         let fm = FileManager.default
         
-        // Determine storage location: external drive primary, local fallback
-        let externalAudioDir = URL(fileURLWithPath: Self.externalDrivePath).appendingPathComponent("audio")
-        let isExternalAvailable = fm.isWritableFile(atPath: Self.externalDrivePath)
-        
-        if isExternalAvailable {
-            // Use external drive
-            self.cacheDir = externalAudioDir.appendingPathComponent("cache")
-            // Ensure directory exists
-            try? fm.createDirectory(at: cacheDir, withIntermediateDirectories: true)
-        } else {
-            // Fallback to local storage
-            self.cacheDir = homeDir
-                .appendingPathComponent("Developer/social-effects")
-                .appendingPathComponent("output/cache/audio")
-            try? fm.createDirectory(at: cacheDir, withIntermediateDirectories: true)
-        }
+        // Use centralized path helper for storage location
+        self.cacheDir = Paths.audioCacheDirectory()
+        try? fm.createDirectory(at: cacheDir, withIntermediateDirectories: true)
         
         // Python virtual environment
         self.venvPython = homeDir
@@ -213,9 +199,7 @@ public actor KokoroVoice {
     
     private func makeCacheKey(for text: String, voice: String) -> String {
         let input = "\(text)|\(voice)"
-        let data = Data(input.utf8)
-        let digest = SHA256.hash(data: data)
-        return digest.compactMap { String(format: "%02x", $0) }.joined()
+        return Hashing.sha256(input)
     }
 }
 

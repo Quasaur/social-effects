@@ -50,7 +50,7 @@ enum TestVideoCommand {
             }
         }
         
-        let outputPath = "\(Paths.sharedDrivePath)/video/test/test_rss_video.mp4"
+        let outputPath = Paths.testVideoPath
         let args = [
             "--title", item.title,
             "--content", item.content,

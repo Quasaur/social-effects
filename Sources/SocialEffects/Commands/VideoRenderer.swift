@@ -85,15 +85,8 @@ enum VideoRenderer {
             return URL(fileURLWithPath: out)
         }
         
-        let sharedVideoDir = "\(Paths.sharedDrivePath)/video"
-        if FileManager.default.isWritableFile(atPath: Paths.sharedDrivePath) {
-            try? FileManager.default.createDirectory(atPath: sharedVideoDir, withIntermediateDirectories: true)
-            return URL(fileURLWithPath: "\(sharedVideoDir)/rss_video_\(timestamp).mp4")
-        } else {
-            let localDir = "output/rss_videos"
-            try? FileManager.default.createDirectory(atPath: localDir, withIntermediateDirectories: true)
-            return URL(fileURLWithPath: "\(localDir)/rss_video_\(timestamp).mp4")
-        }
+        let videoDir = Paths.videoOutputDirectory()
+        return videoDir.appendingPathComponent("rss_video_\(timestamp).mp4")
     }
     
     private static func copyAudioFile(_ source: String, to destination: URL) throws {

@@ -16,8 +16,8 @@ enum BackgroundSelector {
         let slotIndex = (timestamp % 10) + 1
         let slotStr = String(format: "%02d", slotIndex)
         
-        let extBgDir = "/Volumes/My Passport/social-media-content/social-effects/output/backgrounds"
-        let localBgDir = "output/backgrounds"
+        let extBgDir = Paths.externalBackgroundsPath
+        let localBgDir = Paths.localBackgroundsPath
         
         let extFiles = (try? FileManager.default.contentsOfDirectory(atPath: extBgDir)) ?? []
         let localFiles = (try? FileManager.default.contentsOfDirectory(atPath: localBgDir)) ?? []

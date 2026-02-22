@@ -201,7 +201,7 @@ class TextGraphicsGenerator {
         
         switch style {
         case .gold:
-            NSColor(red: 0.83, green: 0.69, blue: 0.22, alpha: 1.0).setStroke()
+            Self.goldColor.setStroke()
         case .silver:
             NSColor(red: 0.75, green: 0.75, blue: 0.75, alpha: 1.0).setStroke()
         case .minimal:

@@ -1,6 +1,27 @@
 import Foundation
 import AVFoundation
 
+// MARK: - Video Timing Constants
+
+/// Standard video timing configuration for the production video pattern
+/// See AGENTS.md "Standard Production Video Pattern" for details
+enum VideoTiming {
+    /// Background video fade in start (seconds)
+    static let bgFadeStart = 3
+    /// Background video fade in duration (seconds)
+    static let bgFadeDuration = 4
+    /// Text overlay fade in start (seconds)
+    static let textFadeStart = 8
+    /// Text overlay fade in duration (seconds)
+    static let textFadeDuration = 4
+    /// Narration audio start (seconds)
+    static let narrationStart = 12
+    /// Minimum video duration (seconds)
+    static let minDuration: Double = 15.0
+    /// Black screen duration at start (seconds)
+    static let blackScreenDuration = 3
+}
+
 // MARK: - FFmpeg Renderer
 
 enum FFmpegRenderer {
@@ -53,9 +74,8 @@ enum FFmpegRenderer {
     }
     
     private static func calculateTargetDuration(durationSeconds: Double) -> Double {
-        let minDuration: Double = 15.0
-        let audioEndTime = 12.0 + durationSeconds
-        return max(minDuration, audioEndTime)
+        let audioEndTime = Double(VideoTiming.narrationStart) + durationSeconds
+        return max(VideoTiming.minDuration, audioEndTime)
     }
     
     private static func buildArguments(
@@ -107,11 +127,11 @@ enum FFmpegRenderer {
     }
     
     private static func buildFilterComplex(pingPong: Bool, hasBgMusic: Bool) -> String {
-        let bgFadeStart = 3
-        let bgFadeDuration = 4
-        let textFadeStart = 8
-        let textFadeDuration = 4
-        let narrationStart = 12
+        let bgFadeStart = VideoTiming.bgFadeStart
+        let bgFadeDuration = VideoTiming.bgFadeDuration
+        let textFadeStart = VideoTiming.textFadeStart
+        let textFadeDuration = VideoTiming.textFadeDuration
+        let narrationStart = VideoTiming.narrationStart
         
         if pingPong {
             let videoFilter = buildPingPongVideoFilter(
