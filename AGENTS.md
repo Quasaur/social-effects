@@ -157,6 +157,17 @@ Duration: 23.6s | Background: 04_neon_tunnel_flight.mp4 | Border: classic-scroll
 5. Merge audio tracks
 6. Composite with FFmpeg: loop background + overlay graphic + mixed audio
 
+### Source Attribution Display
+The `source` field from API requests is displayed based on content type:
+
+| Content Type | Source Value | Display |
+|--------------|--------------|---------|
+| `quote` | Book name (e.g., "The Narrow Way") | `— The Narrow Way` below content |
+| `passage` | Bible reference (e.g., "Proverbs 3:34") | `— Proverbs 3:34` below content |
+| `thought` | Empty / ignored | No attribution line (wisdombook.life in CTA outro is sufficient) |
+
+**Implementation:** `TextGraphicsGenerator.swift` renders the source only when non-empty, using muted gray color and em-dash prefix.
+
 ### Border Style Rotation
 Ornate borders rotate daily via day-of-year calculation:
 ```swift

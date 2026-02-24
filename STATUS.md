@@ -86,8 +86,15 @@ YouTube Upload via YouTube Data API
 - `content` - The quote/passage/thought text
 - `content_type` - `"passage"`, `"thought"`, or `"quote"`
 - `node_title` - Used for filename generation (sanitized to Initial_Caps_With_Underscores)
-- `source` - For **passages**: Book/Chapter/Verse (e.g., "Proverbs 21:1"); for **thoughts/quotes**: "wisdombook.life"
+- `source` - For **passages**: Bible reference (e.g., "Proverbs 21:1"); for **quotes**: book name (e.g., "The Narrow Way"); for **thoughts**: empty (no attribution shown)
 - `ping_pong` - Whether to use ping-pong background looping
+
+**Source Attribution Display:**
+| Content Type | Source Value | Video Attribution |
+|--------------|--------------|-------------------|
+| `quote` | Book name | `— Book Name` shown below content |
+| `passage` | Bible reference | `— Proverbs 21:1` shown below content |
+| `thought` | Empty / ignored | No attribution line (wisdombook.life in CTA outro is sufficient) |
 
 ## Key Commands
 
@@ -123,6 +130,7 @@ swift run SocialEffects generate-backgrounds --test
 - **Kokoro TTS**: Replaced Apple TTS with Kokoro 82M for better quality
 - **Debug Logging**: Added request/response logging for troubleshooting
 - **CTA Fix**: Changed outro to say "dot" for correct URL pronunciation
+- **Source Attribution**: Videos now display book name (quotes) or Bible reference (passages) below content; thoughts skip attribution
 
 ## Storage Locations
 

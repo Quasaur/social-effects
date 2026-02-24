@@ -183,6 +183,7 @@ class APIServer {
             let content = json["content"] as? String ?? ""
             let contentType = json["content_type"] as? String ?? ""
             let nodeTitle = json["node_title"] as? String ?? ""
+            let source = json["source"] as? String ?? ""
             let usePingPong = json["ping_pong"] as? Bool ?? true
             
             // Validate required fields
@@ -215,6 +216,7 @@ class APIServer {
                         content: content,
                         contentType: contentType,
                         nodeTitle: nodeTitle,
+                        source: source,
                         usePingPong: usePingPong
                     )
                     let response = "{\"success\":true,\"video_path\":\"\(outputPath)\"}"
@@ -249,7 +251,7 @@ class APIServer {
         })
     }
     
-    private func generateVideo(title: String, content: String, contentType: String, nodeTitle: String, usePingPong: Bool) async throws -> String {
+    private func generateVideo(title: String, content: String, contentType: String, nodeTitle: String, source: String, usePingPong: Bool) async throws -> String {
         let timestamp = Int(Date().timeIntervalSince1970)
         
         // Sanitize content_type: lowercase
@@ -271,6 +273,12 @@ class APIServer {
             "--output", outputPath,
             "--output-json"
         ]
+        
+        // Pass source for QUOTE and PASSAGE types (not for THOUGHT)
+        if !source.isEmpty && (sanitizedContentType == "quote" || sanitizedContentType == "passage") {
+            args.append("--source")
+            args.append(source)
+        }
         
         if usePingPong {
             args.append("--ping-pong")

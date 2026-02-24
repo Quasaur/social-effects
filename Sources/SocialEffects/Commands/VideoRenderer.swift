@@ -30,9 +30,15 @@ enum VideoRenderer {
             // 2. Graphic
             if !config.outputJSON { print("🖼️ Generating graphic...") }
             let borderStyle = BorderSelector.dailyBorder()
+            
+            // Only pass source for QUOTE and PASSAGE types, not for THOUGHT
+            let shouldShowSource = config.contentType == "quote" || config.contentType == "passage"
+            let sourceToShow = shouldShowSource ? config.source : ""
+            
             _ = try graphicsGenerator.generate(
                 title: config.title,
                 text: config.content,
+                source: sourceToShow,
                 outputPath: graphicPath,
                 border: borderStyle
             )

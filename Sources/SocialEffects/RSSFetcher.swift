@@ -68,10 +68,10 @@ struct RSSFetcher {
         // Extract content type from category tags (look for "Passage", "Thought", "Quote")
         let contentType = extractContentType(from: itemXML)
         
-        // Extract source: for PASSAGE items use wisdom:source tag (Book/Chapter/Verse)
-        // For other types, default to wisdombook.life
+        // Extract source: for PASSAGE items (Bible reference) and QUOTE items (book name)
+        // use wisdom:source tag. THOUGHT items don't have a source.
         let source: String
-        if contentType == "passage" {
+        if contentType == "passage" || contentType == "quote" {
             source = extractWisdomSource(from: itemXML) ?? "wisdombook.life"
         } else {
             source = "wisdombook.life"

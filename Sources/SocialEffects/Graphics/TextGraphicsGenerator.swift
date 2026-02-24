@@ -55,6 +55,7 @@ class TextGraphicsGenerator {
     /// - Parameters:
     ///   - title: Content title displayed at top of frame
     ///   - text: Quote text to render
+    ///   - source: Book name for quotes or Bible reference for passages (shown as attribution)
     ///   - outputPath: Where to save the PNG
     ///   - width: Image width (default: 1080 for vertical video)
     ///   - height: Image height (default: 1920 for vertical video)
@@ -63,6 +64,7 @@ class TextGraphicsGenerator {
     func generate(
         title: String = "",
         text: String,
+        source: String = "",
         outputPath: URL,
         width: Int = 1080,
         height: Int = 1920,
@@ -148,19 +150,24 @@ class TextGraphicsGenerator {
         let attributedText = NSAttributedString(string: text, attributes: attributes)
         attributedText.draw(in: textRect)
         
-        // Attribution: larger font, positioned just below content area
-        let attribution = "wisdombook.life"
-        let attrFontSize: CGFloat = 38
-        let attrAttributes: [NSAttributedString.Key: Any] = [
-            .font: NSFont(name: "Georgia-Bold", size: attrFontSize) ?? NSFont.boldSystemFont(ofSize: attrFontSize),
-            .foregroundColor: StoicColors.offWhite.withAlphaComponent(0.7),
-            .paragraphStyle: paragraphStyle
-        ]
-        
-        let attrText = NSAttributedString(string: attribution, attributes: attrAttributes)
-        let attrY = textY - 80  // Just below content area (adjusted for new content position)
-        let attrRect = NSRect(x: textX, y: attrY, width: textWidth, height: 60)
-        attrText.draw(in: attrRect)
+        // Attribution: only show source for QUOTE (book name) or PASSAGE (Bible reference)
+        // THOUGHT types skip attribution entirely (wisdombook.life appears in CTA outro)
+        if !source.isEmpty {
+            let attribution = "— \(source)"
+            let attrFontSize: CGFloat = 36  // Slightly smaller for book/Bible references
+            let attrColor = StoicColors.mutedGray  // Muted gray for source attribution
+            
+            let attrAttributes: [NSAttributedString.Key: Any] = [
+                .font: NSFont(name: "Georgia-Bold", size: attrFontSize) ?? NSFont.boldSystemFont(ofSize: attrFontSize),
+                .foregroundColor: attrColor,
+                .paragraphStyle: paragraphStyle
+            ]
+            
+            let attrText = NSAttributedString(string: attribution, attributes: attrAttributes)
+            let attrY = textY - 80  // Just below content area (adjusted for new content position)
+            let attrRect = NSRect(x: textX, y: attrY, width: textWidth, height: 60)
+            attrText.draw(in: attrRect)
+        }
         
         image.unlockFocus()
         
