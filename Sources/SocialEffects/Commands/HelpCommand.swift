@@ -3,9 +3,11 @@ import Foundation
 // MARK: - Help Command
 
 enum HelpCommand {
+    static let version = "2.2"
+    
     static func printHelp() {
         print("""
-        🎬 Social Effects - Video Generation CLI
+        🎬 Social Effects v\(version) - Video Generation CLI
         
         COMMANDS:
           generate-video                       Generate a video from explicit content
